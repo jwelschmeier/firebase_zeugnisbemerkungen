@@ -82,6 +82,7 @@
 
   firebase.auth().onAuthStateChanged(function (user) {
     var email = safeEmail(user);
+    initialAuthResolved = true;
     if (user && isAllowedUser(user)) {
       currentUser = user;
       setNavVisible(true);
@@ -95,6 +96,5 @@
       }
       readyCallbacks.splice(0).forEach(function (callback) { callback(null); });
     }
-    initialAuthResolved = true;
   });
 })();

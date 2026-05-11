@@ -1,10 +1,31 @@
 (function () {
-  function callFunction(functionName, args) {
-    var tokenPromise = window.getFirebaseAuthToken
-      ? window.getFirebaseAuthToken()
-      : Promise.reject(new Error('Firebase Auth ist nicht initialisiert.'));
+  function waitForAuthUser() {
+    if (window.getFirebaseAuthToken) return window.getFirebaseAuthToken();
+    if (!window.firebase || !firebase.auth) return Promise.reject(new Error('Firebase Auth ist nicht initialisiert.'));
 
-    return tokenPromise.then(function (token) {
+    var existingUser = firebase.auth().currentUser;
+    if (existingUser) return existingUser.getIdToken();
+
+    return new Promise(function (resolve, reject) {
+      var timeout = setTimeout(function () {
+        unsubscribe();
+        reject(new Error('Bitte zuerst anmelden.'));
+      }, 10000);
+      var unsubscribe = firebase.auth().onAuthStateChanged(function (user) {
+        if (!user) return;
+        clearTimeout(timeout);
+        unsubscribe();
+        resolve(user.getIdToken());
+      }, function (error) {
+        clearTimeout(timeout);
+        unsubscribe();
+        reject(error);
+      });
+    });
+  }
+
+  function callFunction(functionName, args) {
+    return waitForAuthUser().then(function (token) {
       return fetch('/api/call', {
         method: 'POST',
         headers: {

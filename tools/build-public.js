@@ -15,8 +15,8 @@ html = html.replace(
     '<script defer src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>',
     '<script defer src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>',
     '<script defer src="/__/firebase/init.js"></script>',
-    '<script defer src="/firebase-auth-gate.js"></script>',
-    '<script src="/firebase-api-shim.js"></script>',
+    '<script defer src="/firebase-auth-gate.js?v=20260511-2"></script>',
+    '<script src="/firebase-api-shim.js?v=20260511-2"></script>',
     include('js-core')
   ].join('\n')
 );
