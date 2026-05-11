@@ -411,6 +411,42 @@
         transition: color 0.2s;
     }
     .input-status-icon:hover { color: var(--text-light); }
+
+    /* Schwebende Nummern-/Textsuche unter dem Eingabefeld */
+    .floating-comment-panel {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: calc(100% + 4px);
+      z-index: 35;
+      background: #0b1220;
+      border: 1px solid var(--border-dark);
+      border-radius: 8px;
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+      max-height: 260px;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+    .floating-comment-panel.hidden { display: none; }
+    .floating-comment-item {
+      display: block;
+      width: 100%;
+      text-align: left;
+      background: transparent;
+      border: none;
+      color: var(--text-light);
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.35;
+      cursor: pointer;
+    }
+    .floating-comment-item:hover { background: rgba(148, 163, 184, 0.16); }
+    .floating-comment-num {
+      color: var(--primary-accent);
+      font-weight: 700;
+      margin-right: 6px;
+      white-space: nowrap;
+    }
     
     /* --- DATE INPUT STYLES --- */
     input[type="date"] {
@@ -552,6 +588,7 @@ let commentsLoadingPromise = null;
 var pendingStudentFocus = null;
 var pendingProposalSaves = {};
 var pendingDeletions = new Set();
+var floatingCommentHideTimers = {};
 var STUDENT_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjEuNSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTYgMjF2LTJhNCA0IDAgMCAxIDQtNGg0YTQgNCAwIDAgMSA0IDR2MiIvPjwvc3ZnPg==';
 var loadedPhotos = new Map();
 
@@ -2493,6 +2530,7 @@ function getVotingProposalsHtml(s) {
 
 function generateInputRowHtml(studentId, uniqueInputId, firstName) {
   const btnId = `btn-${uniqueInputId}`;
+  const panelId = `float-${uniqueInputId}`;
   return `
     <div class="custom-input-group fade-in-row" id="group-${uniqueInputId}">
       <input type="text" class="custom-input proposal-input"
@@ -2500,9 +2538,11 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
              data-studentid="${studentId}"
              data-firstname="${firstName}"
              data-btnid="${btnId}"
+             data-panelid="${panelId}"
              placeholder="Bemerkung eingeben..."
              autocomplete="off"
-             onblur="autoSaveProposal(this)"
+             onfocus="showFloatingComments(this)"
+             onblur="handleInputBlur(this)"
              onkeydown="if(event.key === 'Enter') { this.blur(); }"
               oninput="handleInput(this)">
 
@@ -2519,6 +2559,8 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
             : '<li><span class="dropdown-item disabled text-muted">Lade Bausteine...</span></li>'
          }
       </ul>
+
+      <div id="${panelId}" class="floating-comment-panel hidden"></div>
     </div>
     <div class="field-error-message hidden" id="err-${uniqueInputId}"></div>
   `;
@@ -2545,6 +2587,7 @@ function showFieldError(inputElement, message) {
 
 function handleInput(inputElement) {
   clearFieldError(inputElement);
+  updateFloatingComments(inputElement);
 
   const val = inputElement.value.trim();
   if (val.startsWith('#') || /^\d+$/.test(val)) {
@@ -2553,10 +2596,104 @@ function handleInput(inputElement) {
       const comment = globalComments.find(c => String(c.num) === String(num));
       if (comment) {
         applyComment(inputElement.id, comment.id);
-        setTimeout(() => inputElement.blur(), 100);
+        updateFloatingComments(inputElement);
       }
     }
   }
+}
+
+function handleInputBlur(inputElement) {
+  hideFloatingCommentsDelayed(inputElement);
+  autoSaveProposal(inputElement);
+}
+
+function showFloatingComments(inputElement) {
+  if (!inputElement) return;
+  const panelId = inputElement.dataset.panelid;
+  if (!panelId) return;
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  const oldTimer = floatingCommentHideTimers[inputElement.id];
+  if (oldTimer) {
+    clearTimeout(oldTimer);
+    delete floatingCommentHideTimers[inputElement.id];
+  }
+
+  updateFloatingComments(inputElement);
+  panel.classList.remove('hidden');
+}
+
+function hideFloatingCommentsDelayed(inputElement) {
+  if (!inputElement) return;
+  const panelId = inputElement.dataset.panelid;
+  if (!panelId) return;
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  const oldTimer = floatingCommentHideTimers[inputElement.id];
+  if (oldTimer) clearTimeout(oldTimer);
+  floatingCommentHideTimers[inputElement.id] = setTimeout(() => {
+    panel.classList.add('hidden');
+    delete floatingCommentHideTimers[inputElement.id];
+  }, 180);
+}
+
+function applyFloatingComment(uniqueInputId, commentId) {
+  const input = document.getElementById(uniqueInputId);
+  if (!input) return;
+  applyComment(uniqueInputId, commentId);
+  updateFloatingComments(input);
+  input.focus();
+}
+
+function updateFloatingComments(inputElement) {
+  if (!inputElement) return;
+  const panelId = inputElement.dataset.panelid;
+  if (!panelId) return;
+  const panel = document.getElementById(panelId);
+  if (!panel) return;
+
+  const list = (typeof globalComments !== "undefined" && Array.isArray(globalComments)) ? globalComments : [];
+  if (list.length === 0) {
+    panel.innerHTML = '<div class="floating-comment-item text-muted">Lade Bausteine...</div>';
+    return;
+  }
+
+  const queryRaw = String(inputElement.value || '').trim();
+  const query = queryRaw.toLowerCase();
+  const numericQuery = query.replace(/^#/, '');
+
+  const scored = list.map(c => {
+    const num = String(c.num || '');
+    const text = String(c.text || '').toLowerCase();
+    let score = 0;
+
+    if (!query) score = 1;
+    else if (num && numericQuery && num.startsWith(numericQuery)) score = 100;
+    else if (num && numericQuery && num.includes(numericQuery)) score = 90;
+    else if (text.startsWith(query)) score = 70;
+    else if (text.includes(query)) score = 60;
+
+    return { c, score };
+  }).filter(x => x.score > 0);
+
+  scored.sort((a, b) => {
+    if (a.score !== b.score) return b.score - a.score;
+    const aNum = parseInt(String(a.c.num || '999999'), 10);
+    const bNum = parseInt(String(b.c.num || '999999'), 10);
+    if (aNum !== bNum) return aNum - bNum;
+    return String(a.c.text || '').localeCompare(String(b.c.text || ''));
+  });
+
+  const top = scored.slice(0, 12).map(({ c }) => {
+    const numLabel = c.num ? `#${c.num}` : '#---';
+    return `<button type="button" class="floating-comment-item" onmousedown="applyFloatingComment('${inputElement.id}', '${c.id}'); return false;"><span class="floating-comment-num">${numLabel} [${c.category}]</span>${c.text || ''}</button>`;
+  });
+
+  panel.innerHTML = top.length
+    ? top.join('')
+    : '<div class="floating-comment-item text-muted">Keine passenden Bausteine</div>';
 }
 
 function clearFieldError(inputElement) {
