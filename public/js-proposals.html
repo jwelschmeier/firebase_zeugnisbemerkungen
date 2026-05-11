@@ -1,0 +1,523 @@
+<script>
+// ProposalsModule: isolated proposal handling (optimistic UI, retries, rendering helpers)
+const ProposalsModule = (function(){
+  const optimisticProposals = {};
+  const optimisticIndex = {};
+  const pendingSaveTimeouts = {};
+  const pendingRemovalTimers = {};
+
+  // Lightweight instrumentation helper
+  function instr(tag, data) {
+    try { console.debug(`[PM][INSTR][${new Date().toISOString()}] ${tag}`, data); } catch(e) {}
+  }
+
+  function normalize(t){ return String(t||'').replace(/\s+/g,' ').trim().toLowerCase(); }
+  function creatorKey(c){ return String(c||'').split('@')[0].toLowerCase().trim(); }
+
+  function addOptimisticProposal(className, studentId, proposal){
+    if(!className || !studentId) return;
+    optimisticProposals[className] = optimisticProposals[className] || {};
+    optimisticProposals[className][studentId] = optimisticProposals[className][studentId] || [];
+    optimisticProposals[className][studentId].push(proposal);
+    console.debug('[PM] addOptimistic', {className, studentId, id: proposal.id});
+  }
+
+  function clearPendingTimeout(tempId){ try{ if(!tempId) return; const t = pendingSaveTimeouts[tempId]; if(t) clearTimeout(t); delete pendingSaveTimeouts[tempId]; } catch(e){} }
+
+  function markProposalFailed(tempId){
+    const entry = optimisticIndex[tempId]; if(!entry) return; const { className, studentId } = entry;
+    const arr = optimisticProposals[className] && optimisticProposals[className][studentId]; if(!arr) return;
+    const p = arr.find(x=>x.id===tempId);
+    if(p){ p._failed = true; const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell){
+      const serverStudent = (globalData && globalData.studentsByClass && globalData.studentsByClass[className]) ? globalData.studentsByClass[className].find(s=>s.id==studentId) : { proposals: [] };
+      cell.innerHTML = ProposalsModule.getProposalListHtml(serverStudent || { proposals: [] , id: studentId, klasse: className});
+    }}
+  }
+
+  function retryTempProposal(tempId){
+    const entry = optimisticIndex[tempId]; if(!entry) return;
+    const { className, studentId, text } = entry;
+    const arr = optimisticProposals[className] && optimisticProposals[className][studentId]; if(!arr) return;
+    const idx = arr.findIndex(x=>x.id===tempId); if(idx===-1) return; const old = arr[idx]; arr.splice(idx,1); clearPendingTimeout(tempId); delete optimisticIndex[tempId];
+    const newTempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    const newOpt = { id:newTempId, text:text, creator: old.creator || globalData.userEmail || 'ich', canDelete:true, _temp:true };
+    arr.push(newOpt); optimisticIndex[newTempId] = { className, studentId, text, creator: newOpt.creator };
+    // Increase timeout to allow slower backend responses (20s)
+    pendingSaveTimeouts[newTempId] = setTimeout(()=>markProposalFailed(newTempId), 20000);
+
+    google.script.run.withSuccessHandler(res=>{ if(res && res.studentsByClass) { if(typeof applyServerData === 'function') applyServerData(res); } if(className && studentId) ProposalsModule.removeMatchingOptimistic(className, studentId, (globalData.studentsByClass && globalData.studentsByClass[className] && globalData.studentsByClass[className].find(s=>s.id==studentId)?.proposals) || []); })
+      .withFailureHandler(()=>{})
+      .saveBulkProposals([{ studentId: studentId, text: text, className: className, clientKey: newTempId }]);
+  }
+
+  function removeMatchingOptimistic(className, studentId, serverProposals){
+    if(!className || !studentId || !optimisticProposals[className] || !optimisticProposals[className][studentId]) return;
+    const serverList = Array.isArray(serverProposals) ? serverProposals : [];
+    instr('removeMatchingOptimistic START', { className, studentId, optimisticCount: (optimisticProposals[className] && optimisticProposals[className][studentId])? optimisticProposals[className][studentId].length:0, serverCount: serverList.length });
+    // Map: key = normalized text+creator, value = echte Server-ID
+    const serverMap = new Map();
+    serverList.forEach(p => {
+      // WICHTIG: Ignoriere Proposals mit temp-IDs in der Datenbank (alte fehlerhafte Einträge)
+      if(String(p.id || '').startsWith('temp-')) {
+        console.debug('[PM] Skipping server proposal with temp-ID:', p.id);
+        return;
+      }
+      const key = `${normalize(p.text)}:::${creatorKey(p.creator)}`;
+      serverMap.set(key, p.id);
+    });
+    instr('removeMatchingOptimistic serverMapBuilt', { serverCount: serverList.length, validServerCount: serverMap.size });
+
+    // Entferne alle temp-Proposals, die jetzt als echte Server-Proposals existieren
+    const remaining = [];
+    const removedTempIds = [];
+    // Build server text set as fallback
+    const serverTextSet = new Set(serverList.map(p => normalize(p.text)));
+
+    optimisticProposals[className][studentId].forEach(opt => {
+      const key = `${normalize(opt.text)}:::${creatorKey(opt.creator)}`;
+      const matchedServerId = serverMap.get(key);
+      const textMatch = serverTextSet.has(normalize(opt.text));
+
+      if ((matchedServerId && String(opt.id).startsWith('temp-')) || (textMatch && String(opt.id).startsWith('temp-'))) {
+        // Sofort entfernen, da jetzt persistent (either by creator+text match or text-only match)
+        clearPendingTimeout(opt.id);
+        delete optimisticIndex[opt.id];
+        if(pendingRemovalTimers[opt.id]) { clearTimeout(pendingRemovalTimers[opt.id]); delete pendingRemovalTimers[opt.id]; }
+        removedTempIds.push(opt.id);
+        instr('tempRemoved', { tempId: opt.id, serverId: matchedServerId || '(text-match)' });
+      } else {
+        // Timer ggf. abbrechen
+        if(opt.id && pendingRemovalTimers[opt.id]){ clearTimeout(pendingRemovalTimers[opt.id]); delete pendingRemovalTimers[opt.id]; }
+        remaining.push(opt);
+      }
+    });
+    optimisticProposals[className][studentId] = remaining;
+    if(optimisticProposals[className][studentId] && optimisticProposals[className][studentId].length===0) delete optimisticProposals[className][studentId];
+    if(Object.keys(optimisticProposals[className]||{}).length===0) delete optimisticProposals[className];
+    // Also remove these temp IDs from globalData student proposals if present
+    try {
+      if (removedTempIds.length > 0 && globalData && globalData.studentsByClass && globalData.studentsByClass[className]) {
+        const stud = globalData.studentsByClass[className].find(s => String(s.id) === String(studentId));
+        if (stud && Array.isArray(stud.proposals)) {
+          stud.proposals = stud.proposals.filter(p => !removedTempIds.includes(String(p.id)));
+        }
+      }
+    } catch (e) { console.error('Error removing temp IDs from globalData proposals:', e); }
+    instr('removeMatchingOptimistic END', { removedTempIds, remainingOptimistic: (optimisticProposals[className]&&optimisticProposals[className][studentId])? optimisticProposals[className][studentId].length:0 });
+    // Nach dem Entfernen sofort neu rendern
+    try {
+      const cell = document.getElementById(`proposals-cell-${studentId}`);
+      const updatedStudent = (globalData && globalData.studentsByClass && globalData.studentsByClass[className]) ? globalData.studentsByClass[className].find(s=>s.id==studentId) : null;
+      if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(updatedStudent||{proposals:[], id: studentId, klasse: className});
+    } catch(e){}
+  }
+
+  function mergeOptimisticStudents(className, students){
+    if(!className || !students || !optimisticProposals[className]) return students;
+    const overrides = optimisticProposals[className];
+    return students.map(s=>{
+      const extra = overrides[s.id]; if(!extra || extra.length===0) return s; 
+      const clone = {...s, proposals: Array.isArray(s.proposals)?[...s.proposals]:[]}; 
+      
+      // Build a map of server proposals by normalized text+creator
+      const serverMap = new Map();
+      clone.proposals.forEach(sp => {
+        const key = `${normalize(sp.text)}:::${creatorKey(sp.creator)}`;
+        serverMap.set(key, sp.id);
+      });
+      
+      // For each optimistic proposal:
+      // - If matching server proposal exists (same text+creator), REMOVE the optimistic (it's now on server)
+      // - If NO matching, ADD the optimistic (it's pending)
+      extra.forEach(opt=>{ 
+        const key = `${normalize(opt.text)}:::${creatorKey(opt.creator)}`;
+        const hasMatching = serverMap.has(key);
+        
+        if(!hasMatching) {
+          // No matching server proposal: add optimistic if not already present by ID
+          if(!clone.proposals.find(p=>p.id===opt.id)) {
+            clone.proposals.push(opt);
+          }
+        }
+        // If hasMatching: skip adding (server version already in proposals)
+      }); 
+      
+      return clone;
+    });
+  }
+
+  // Map für "gespeichert"-Badges: Vorschlag-ID => Timeout
+  const savedBadgeTimeouts = {};
+
+  function showSavedBadge(proposalId, studentId) {
+    const badgeId = `saved-badge-${proposalId}`;
+    const badge = document.getElementById(badgeId);
+    if (badge) badge.style.display = '';
+    // Nach 2 Sekunden ausblenden
+    if (savedBadgeTimeouts[proposalId]) clearTimeout(savedBadgeTimeouts[proposalId]);
+    savedBadgeTimeouts[proposalId] = setTimeout(() => {
+      const badge = document.getElementById(badgeId);
+      if (badge) badge.style.display = 'none';
+      delete savedBadgeTimeouts[proposalId];
+    }, 2000);
+  }
+
+  function deleteProposalWithLog(proposalId, studentId, className) {
+    console.debug('[PM] Löschen angefordert für ID:', proposalId, 'studentId:', studentId, 'className:', className);
+    
+    // Show spinner on delete icon
+    const propRow = document.getElementById(`prop-row-${proposalId}`);
+    if(propRow) {
+      const deleteIcon = propRow.querySelector('.fa-trash-can');
+      if(deleteIcon) {
+        deleteIcon.className = 'fa-solid fa-spinner fa-spin text-danger ms-2';
+        deleteIcon.style.cursor = 'wait';
+        deleteIcon.onclick = null; // Prevent multiple clicks
+      }
+    }
+    
+    google.script.run.withSuccessHandler(function(result) {
+      console.debug('[PM] Löschen erfolgreich, result:', result);
+      if(!result || result.success === false) {
+        console.error('[PM] Löschen fehlgeschlagen:', result);
+        // Restore delete icon on error
+        if(propRow) {
+          const spinner = propRow.querySelector('.fa-spinner');
+          if(spinner) {
+            spinner.className = 'fa-solid fa-trash-can text-danger ms-2';
+            spinner.style.cursor = 'pointer';
+            spinner.onclick = function() { ProposalsModule.deleteProposalWithLog(proposalId, studentId, className); };
+          }
+        }
+        if(typeof showMessage==='function') showMessage('Fehler', result.error || 'Löschen fehlgeschlagen.','error');
+        return;
+      }
+      
+      // deleteProposalV2 returns: { success, proposalsByStudent, className, studentId }
+      // Update the student's proposals in globalData
+      if(result.proposalsByStudent && result.studentId && globalData && globalData.studentsByClass && globalData.studentsByClass[className]) {
+        const student = globalData.studentsByClass[className].find(s => s.id === result.studentId);
+        if(student) {
+          student.proposals = result.proposalsByStudent[result.studentId] || [];
+          console.debug('[PM] Updated student proposals after delete:', student.proposals);
+        }
+      }
+      
+      // Re-render the proposals cell (will remove the row with spinner)
+      const updatedStudent = globalData.studentsByClass[className].find(s=>s.id==studentId);
+      const cell = document.getElementById(`proposals-cell-${studentId}`);
+      if(updatedStudent && cell) { 
+        cell.innerHTML = ProposalsModule.getProposalListHtml(updatedStudent); 
+        console.debug('[PM] Re-rendered proposals cell after delete');
+        try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(className); }catch(e){} 
+      }
+    }).withFailureHandler(function(err){
+      console.error('[PM] Löschen fehlgeschlagen (network/server error):', err);
+      // Restore delete icon on network error
+      if(propRow) {
+        const spinner = propRow.querySelector('.fa-spinner');
+        if(spinner) {
+          spinner.className = 'fa-solid fa-trash-can text-danger ms-2';
+          spinner.style.cursor = 'pointer';
+          spinner.onclick = function() { ProposalsModule.deleteProposalWithLog(proposalId, studentId, className); };
+        }
+      }
+      if(typeof showMessage==='function') showMessage('Fehler','Löschen fehlgeschlagen: ' + err,'error');
+    }).deleteProposal(proposalId);
+  }
+
+  function getProposalListHtml(s){
+    if(!s) return '';
+    const className = s.klasse || s._className || '';
+    const studentId = s.id;
+    const serverList = Array.isArray(s.proposals) ? s.proposals : [];
+    const optimistic = (optimisticProposals[className] && optimisticProposals[className][studentId]) || [];
+
+    // Merge serverList + optimistic deterministically and dedupe by normalized text+creator
+    const combined = [];
+    const seen = new Set();
+    const keyOf = p => `${normalize(p.text)}:::${creatorKey(p.creator)}`;
+
+    // Add server proposals first (prefer server entries)
+    serverList.forEach(p => {
+      const k = keyOf(p);
+      if (!seen.has(k)) { combined.push(p); seen.add(k); }
+    });
+
+    // Then add optimistic proposals only if not already present
+    optimistic.forEach(p => {
+      const k = keyOf(p);
+      if (!seen.has(k)) { combined.push(p); seen.add(k); }
+    });
+
+    if (!combined || combined.length === 0) return '';
+    return combined.filter(p=>true).map(p=>{
+      const isTemp = Boolean(p._temp) || String(p.id||'').startsWith('temp-');
+      // Löschen-Icon nur für echte Vorschläge (keine temp-IDs)
+      const deleteBtn = (p.canDelete && !isTemp) ? `<i class="fa-solid fa-trash-can text-danger ms-2" style="cursor:pointer; opacity:0.7;" onclick="ProposalsModule.deleteProposalWithLog('${p.id}','${studentId}','${className}')" title="Löschen"></i>` : '';
+      const tempBadge = isTemp ? `<span class="badge bg-secondary ms-2" style="font-size:0.65rem;">wird gespeichert..</span>` : '';
+      const failedBadge = p._failed ? `<button class="btn btn-sm btn-outline-danger ms-2" onclick="ProposalsModule.retryTempProposal('${p.id}')">Speichern fehlgeschlagen – erneut</button>` : '';
+      // Gespeichert-Badge nur für echte Vorschläge, die gerade frisch gespeichert wurden
+      const savedBadge = (!isTemp && p._justSaved) ? `<span id="saved-badge-${p.id}" class="badge bg-success ms-2" style="font-size:0.65rem; display:none;">gespeichert</span>` : '';
+      return `\n       <div id="prop-row-${p.id}" class="existing-proposal-box fade-in-row">\n         <div style="flex:1;">\n           <i class="fa-solid fa-quote-left quote-icon"></i> ${escapeHtml(p.text||'')}\n         </div>\n         <div class="d-flex align-items-center flex-shrink-0 ms-2">\n           <span class="user-badge">${escapeHtml((p.creator||'').split('@')[0])}</span>\n           ${tempBadge}\n           ${failedBadge}\n           ${savedBadge}\n           ${deleteBtn}\n         </div>\n       </div>`;
+    }).join('');
+  }
+
+  function getVotingProposalsHtml(s) {
+    if (!s) return '';
+    const proposals = Array.isArray(s.proposals) ? s.proposals : [];
+    if (proposals.length === 0) return '<div class="text-muted">Keine Vorschläge vorhanden</div>';
+    
+    const myEmail = globalData.userEmail || '';
+    const myVotes = globalData.myVotes || {};
+    
+    return proposals.map(p => {
+      const myVote = myVotes[p.id] || p.myVote || 0;
+      const posCount = p.positiveCount || p.pos || 0;
+      const negCount = p.negativeCount || p.neg || 0;
+      const votersPos = Array.isArray(p.votersPos) ? p.votersPos : [];
+      const votersNeg = Array.isArray(p.votersNeg) ? p.votersNeg : [];
+      
+      const upActive = myVote === 1 ? 'btn-success' : 'btn-outline-secondary';
+      const downActive = myVote === -1 ? 'btn-danger' : 'btn-outline-secondary';
+      
+      const votersPosStr = votersPos.map(v => v.split('@')[0]).join(', ');
+      const votersNegStr = votersNeg.map(v => v.split('@')[0]).join(', ');
+      
+      return `
+        <div class="existing-proposal-box fade-in-row mb-2">
+          <div style="flex:1;">
+            <i class="fa-solid fa-quote-left quote-icon"></i> ${escapeHtml(p.text || '')}
+            <div class="mt-1">
+              <span class="user-badge">${escapeHtml((p.creator || '').split('@')[0])}</span>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-3">
+            <button class="btn btn-sm ${upActive}" onclick="castVoteUI('${p.id}', '${s.id}', 1)" title="Dafür: ${votersPosStr}">
+              <i class="fa-solid fa-thumbs-up"></i> ${posCount}
+            </button>
+            <button class="btn btn-sm ${downActive}" onclick="castVoteUI('${p.id}', '${s.id}', -1)" title="Dagegen: ${votersNegStr}">
+              <i class="fa-solid fa-thumbs-down"></i> ${negCount}
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function autoSaveProposal(inputElement){
+    // replicate lighter-weight save flow: validate, optimistic push, server call, timeouts
+    const text = (inputElement.value||'').trim(); if(!text) return; const validation = (typeof validateProposalText==='function')? validateProposalText(text) : { valid: true };
+    const classNameForLog = (document.getElementById('class-select')||{}).value || '';
+    console.debug('[PM] autoSaveProposal start', { className: classNameForLog, text });
+    if(!validation.valid){ if(typeof showFieldError==='function') showFieldError(inputElement, validation.message||'Invalid'); return; }
+    const studentId = inputElement.dataset.studentid; const tempId = 'temp-'+Date.now();
+    const selectEl = document.getElementById('class-select') || document.querySelector('select'); const currentClass = selectEl? selectEl.value : '';
+    const studentList = globalData.studentsByClass ? globalData.studentsByClass[currentClass] : null; const student = studentList ? studentList.find(s=>s.id==studentId) : null;
+    if(student){ if(!Array.isArray(student.proposals)) student.proposals = []; student.proposals.push({ id: tempId, text:text, creator: globalData.userEmail || 'ich', canDelete:true, _temp:true }); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); }
+    addOptimisticProposal(currentClass, studentId, { id: tempId, text:text, creator: globalData.userEmail || 'ich', canDelete:true, _temp:true });
+    optimisticIndex[tempId] = { className: currentClass, studentId, text, creator: globalData.userEmail || 'ich' };
+    // Increase timeout to allow slower backend responses (20s)
+    pendingSaveTimeouts[tempId] = setTimeout(()=>markProposalFailed(tempId), 20000);
+
+    const payload = [{ studentId: studentId, text: text, className: currentClass, clientKey: tempId }];
+    google.script.run.withSuccessHandler(newData=>{
+      console.debug('[PM][DEBUG] SuccessHandler called, newData:', newData, 'tempId:', tempId, 'currentClass:', currentClass);
+      // Normalize possible wrapper shape: some server calls return { newData: {...}, tempId:..., ... }
+      let resp = newData;
+      try { if (resp && resp.newData) resp = resp.newData; } catch (e) { /* ignore */ }
+      if(resp==null){ console.error('PM save returned null'); if(student){ student.proposals = (student.proposals||[]).filter(p=>p.id!==tempId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); } return; }
+      if(resp.success===false){ if(student){ student.proposals = (student.proposals||[]).filter(p=>p.id!==tempId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); } if(typeof showFieldError==='function') showFieldError(inputElement, (resp.errors && resp.errors[0] && resp.errors[0].reason) || resp.message || 'Server validation'); return; }
+
+      // Handle both formats: studentsByClass (legacy) or proposalsByStudent (V2)
+      const hasLegacyFormat = resp && resp.studentsByClass && resp.studentsByClass[currentClass];
+      const hasV2Format = resp && resp.proposalsByStudent && resp.proposalsByStudent[studentId];
+      
+      if(hasLegacyFormat || hasV2Format){
+        console.debug('[PM][DEBUG] Server response:', {newData, tempId, currentClass, studentId});
+        console.debug('[PM][DEBUG] Format detected:', hasLegacyFormat ? 'legacy' : 'V2');
+        
+        // SIMPLIFIED FIX: Call applyServerData ONCE with the correct format
+        if(typeof applyServerData==='function') {
+          if(hasLegacyFormat) {
+            // Use legacy format directly from server
+            applyServerData(newData);
+          } else if(hasV2Format) {
+            // Convert V2 format to legacy format
+            // Get existing students for this class or create minimal structure
+            const existingStudents = (globalData.studentsByClass && globalData.studentsByClass[currentClass]) || [];
+            const updatedStudents = existingStudents.map(s => {
+              if(String(s.id) === String(studentId)) {
+                // Update this student's proposals
+                return { ...s, proposals: newData.proposalsByStudent[studentId] || [] };
+              }
+              return s;
+            });
+            
+            // If student not found in existing, add them
+            if(!existingStudents.find(s => String(s.id) === String(studentId))) {
+              updatedStudents.push({
+                id: studentId,
+                proposals: newData.proposalsByStudent[studentId] || []
+              });
+            }
+            
+            const legacyFormat = {
+              studentsByClass: {
+                [currentClass]: updatedStudents
+              },
+              phase: newData.phase,
+              phaseDescription: newData.phaseDescription
+            };
+            applyServerData(legacyFormat);
+          }
+        }
+        
+        // NOTE: Do NOT remove the optimistic temp-entry yet — wait until we confirm
+        // that the server returned a persistent proposal matching this text/creator.
+        // We will remove the temp entry after attempting to reconcile below.
+        
+        // Remove any server-returned proposals that still have temp-IDs (artifacts)
+        try {
+          const classStudents = globalData.studentsByClass && globalData.studentsByClass[currentClass];
+          if (Array.isArray(classStudents)) {
+            classStudents.forEach(st => {
+              if (Array.isArray(st.proposals)) {
+                const before = st.proposals.length;
+                st.proposals = st.proposals.filter(p => !String(p.id || '').startsWith('temp-'));
+                if (st.proposals.length !== before) console.debug('[PM] Removed server-side temp proposals from class data for student', st.id);
+              }
+            });
+          }
+        } catch(e) { console.error('Error cleaning server temp proposals', e); }
+
+        // Get proposals for matching (from globalData after update)
+        const updatedStudent = globalData.studentsByClass && globalData.studentsByClass[currentClass] && globalData.studentsByClass[currentClass].find(s=>s.id==studentId);
+        const serverProps = (updatedStudent && Array.isArray(updatedStudent.proposals)) ? updatedStudent.proposals : [];
+          
+        console.debug('[PM][DEBUG] Vorschläge nach Server-Update:', {studentId, serverProps});
+        // Deterministic reconciliation: if server returned a clientKeyMap, replace temp-ID with server-ID
+        try {
+          // clientKeyMap may live on the top-level resp or be wrapped; check both
+          const clientKeyMap = (newData && (newData.clientKeyMap || (newData.newData && newData.newData.clientKeyMap))) || (resp && resp.clientKeyMap) || {};
+          if (clientKeyMap && clientKeyMap[tempId]) {
+            const serverIdForTemp = clientKeyMap[tempId];
+            // Clear pending timeouts and indexes for temp
+            try { clearPendingTimeout(tempId); } catch (e) {}
+            try { delete optimisticIndex[tempId]; } catch (e) {}
+            try {
+              if (optimisticProposals[currentClass] && optimisticProposals[currentClass][studentId]) {
+                optimisticProposals[currentClass][studentId] = optimisticProposals[currentClass][studentId].filter(o => String(o.id) !== String(tempId));
+                if (optimisticProposals[currentClass][studentId].length === 0) delete optimisticProposals[currentClass][studentId];
+                if (Object.keys(optimisticProposals[currentClass]||{}).length===0) delete optimisticProposals[currentClass];
+              }
+            } catch(e){}
+
+            // Replace temp ID in globalData if present and mark server entry as justSaved
+            try {
+              const stud = globalData.studentsByClass && globalData.studentsByClass[currentClass] && globalData.studentsByClass[currentClass].find(s => String(s.id) === String(studentId));
+              if (stud && Array.isArray(stud.proposals)) {
+                stud.proposals.forEach(p=>{
+                  if (String(p.id) === String(tempId)) {
+                    p.id = serverIdForTemp;
+                    p._temp = false;
+                    p._justSaved = true;
+                  }
+                });
+              }
+              // Ensure serverProps includes the server entry
+              if (serverProps && !serverProps.find(p=>String(p.id)===String(serverIdForTemp))) {
+                serverProps.push({ id: serverIdForTemp, text: text, creator: globalData.userEmail || '', _justSaved: true });
+              }
+            } catch(e) { console.error('Error applying clientKeyMap reconciliation', e); }
+          }
+        } catch(e) { console.error('ClientKey reconciliation error', e); }
+
+        // Finde den Vorschlag mit gleichem Text und Creator, aber echter ID (robuster Abgleich)
+        const tempText = normalize(text);
+        const tempCreator = String((globalData.userEmail || 'ich')).toLowerCase();
+        let justSavedId = null;
+        serverProps.forEach(p => {
+          if(normalize(p.text) === tempText && String(p.creator||'').toLowerCase() === tempCreator) {
+            p._justSaved = true;
+            justSavedId = p.id;
+          }
+        });
+        if(!justSavedId) {
+          console.warn('[PM][DEBUG] Kein justSavedId gefunden!', {tempText, tempCreator, serverProps});
+        }
+        console.debug('[PM][DEBUG] Calling removeMatchingOptimistic with:', {currentClass, studentId, serverPropsCount: serverProps.length});
+        ProposalsModule.removeMatchingOptimistic(currentClass, studentId, serverProps);
+        
+        const cell = document.getElementById(`proposals-cell-${studentId}`);
+        const finalStudent = globalData.studentsByClass && globalData.studentsByClass[currentClass] && globalData.studentsByClass[currentClass].find(s=>s.id==studentId);
+          // Merge server + optimistic proposals with de-duplication:
+          instr('merge START', { className: currentClass, studentId, serverCount: (finalStudent && Array.isArray(finalStudent.proposals))? finalStudent.proposals.length:0, optimisticCount: ((optimisticProposals[currentClass] && optimisticProposals[currentClass][studentId])||[]).length });
+          // - Prefer server (non-temp) proposals
+          // - Append optimistic (temp) proposals only if no server equivalent (by normalized text+creator)
+          try {
+            const merged = [];
+            const seen = new Set();
+            const keyOf = p => `${normalize(p.text)}:::${creatorKey(p.creator)}`;
+
+            // Add server proposals first (exclude any temp-IDs that slipped through)
+            if (finalStudent && Array.isArray(finalStudent.proposals)) {
+              finalStudent.proposals.forEach(p => {
+                if (String(p.id || '').startsWith('temp-')) return; // skip any temp artifacts
+                const k = keyOf(p);
+                if (!seen.has(k)) { merged.push(p); seen.add(k); }
+              });
+            }
+
+            // Then add optimistic proposals if they don't duplicate server entries
+            const remainingOptimistic = (optimisticProposals[currentClass] && optimisticProposals[currentClass][studentId]) || [];
+            remainingOptimistic.forEach(opt => {
+              const k = keyOf(opt);
+              if (!seen.has(k)) { merged.push(opt); seen.add(k); }
+            });
+
+            // Replace finalStudent proposals with merged, deduped list
+            if (finalStudent) finalStudent.proposals = merged;
+          } catch (e) { console.error('Error merging/deduping proposals before render:', e); }
+          instr('merge END', { mergedCount: (finalStudent && Array.isArray(finalStudent.proposals))? finalStudent.proposals.length:0 });
+        if(finalStudent && cell) {
+          // Use requestAnimationFrame to avoid render flicker when scrolling
+          requestAnimationFrame(() => {
+            cell.innerHTML = ProposalsModule.getProposalListHtml(finalStudent);
+          });
+          // Zeige das "gespeichert"-Badge für 2 Sekunden
+          if(justSavedId) showSavedBadge(justSavedId, studentId);
+          try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(currentClass); }catch(e){}
+        }
+        // Entferne das Flag nach dem Rendern, damit es beim nächsten Rendern nicht mehr erscheint
+        if(justSavedId) {
+          setTimeout(()=>{
+            const student = globalData.studentsByClass[currentClass].find(s=>s.id==studentId);
+            if(student && Array.isArray(student.proposals)) {
+              student.proposals.forEach(p=>{ if(p.id===justSavedId) delete p._justSaved; });
+            }
+          }, 2100);
+        }
+      }
+      else if(currentClass){ const token = Date.now(); pendingStudentFetch[currentClass] = token; google.script.run.withSuccessHandler(data=>{ if(pendingStudentFetch[currentClass]!==token) return; if(!data || data.success===false) return; if(typeof applyServerData==='function') applyServerData({ phase: data.phase, phaseDescription: data.phaseDescription, studentsByClass: { [currentClass]: (data.studentsByClass && data.studentsByClass[currentClass]) || [] } }); const updatedStudent = globalData.studentsByClass[currentClass].find(s=>s.id==studentId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(updatedStudent && cell){ ProposalsModule.removeMatchingOptimistic(currentClass, studentId, updatedStudent.proposals || []); cell.innerHTML = ProposalsModule.getProposalListHtml(updatedStudent); try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(currentClass); }catch(e){} } }).withFailureHandler(()=>{}).getStudentsForClass(currentClass); }
+    }).withFailureHandler(err=>{ console.error('PM save failed', err); if(student){ student.proposals = (student.proposals||[]).filter(p=>p.id!==tempId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); } if(typeof showMessage==='function') showMessage('Fehler','Speichern fehlgeschlagen.','error'); }).saveBulkProposals(payload);
+  }
+
+  // ProposalsCore is provided by js-proposals-core.html include
+  return {
+    addOptimisticProposal,
+    removeMatchingOptimistic,
+    mergeOptimisticStudents,
+    getProposalListHtml,
+    getVotingProposalsHtml,
+    autoSaveProposal,
+    retryTempProposal,
+    markProposalFailed,
+    clearPendingTimeout,
+    deleteProposalWithLog
+  };
+})();
+
+// Expose to window so `js-teacher.html` delegation via window.ProposalsModule works
+try { window.ProposalsModule = ProposalsModule; console.debug('[PM] initialized and exposed on window'); } catch(e) { console.debug('[PM] initialized (no window exposure)', e); }
+</script>

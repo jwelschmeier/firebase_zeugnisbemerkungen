@@ -1,0 +1,1187 @@
+<script>
+// ===============================================
+// MODUL: TEACHER (Version: Instant Feedback / No Waiting)
+// ===============================================
+
+// Hinweis: Globale Variablen werden in js-core.html deklariert
+// Hier nur sicherstellen, dass sie existieren
+if (typeof pendingStudentFocus === 'undefined') window.pendingStudentFocus = null;
+if (typeof pendingProposalSaves === 'undefined') window.pendingProposalSaves = {};
+if (typeof pendingDeletions === 'undefined') window.pendingDeletions = new Set();
+if (typeof currentRenderWindow === 'undefined') window.currentRenderWindow = null; // Global reference to renderWindow
+
+function addOptimisticProposal(className, studentId, proposal) {
+  if (window.ProposalsModule && ProposalsModule.addOptimisticProposal) return ProposalsModule.addOptimisticProposal(className, studentId, proposal);
+}
+
+function removeMatchingOptimistic(className, studentId, serverProposals) {
+  if (window.ProposalsModule && ProposalsModule.removeMatchingOptimistic) return ProposalsModule.removeMatchingOptimistic(className, studentId, serverProposals);
+}
+
+function clearPendingTimeout(tempId) {
+  try {
+    // Silent operation: no pending-timeout management in ProposalsModule anymore
+    return;
+  } catch (e) { /* ignore */ }
+}
+
+function markProposalFailed(tempId) {
+  // No-op: failure flags are not used in silent mode
+  return;
+}
+
+function retryTempProposal(tempId) {
+  // No-op: retry flow removed for silent autosave
+  return;
+}
+
+function mergeOptimisticStudents(className, students) {
+  if (window.ProposalsModule && ProposalsModule.mergeOptimisticStudents) return ProposalsModule.mergeOptimisticStudents(className, students);
+  return students;
+}
+
+// Merge server-provided students for a single class with any optimistic proposals
+function mergeServerStudents(className, serverStudents) {
+  if (!className) return;
+  
+  globalData.studentsByClass = globalData.studentsByClass || {};
+  
+  // Build a map of server proposals by student id
+  const serverMap = {};
+  (serverStudents || []).forEach(s => { 
+    serverMap[s.id] = Array.isArray(s.proposals) ? s.proposals.slice() : []; 
+  });
+
+  const existing = globalData.studentsByClass[className] || null;
+  
+  if (!existing) {
+    // No existing data: clone server students
+    const cloned = (serverStudents || []).map(s => ({ 
+      ...(s || {}), 
+      proposals: Array.isArray(s.proposals) ? [...s.proposals] : [] 
+    }));
+    globalData.studentsByClass[className] = cloned;
+  } else {
+    // Merge server proposals into existing students (preserve existing proposals)
+    globalData.studentsByClass[className] = existing.map(s => {
+      const serverList = serverMap[s.id] || [];
+      const existingProps = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+      const existingIds = new Set(existingProps.map(p => String(p.id)));
+      
+      // Add new server proposals that don't exist yet
+      serverList.forEach(sp => {
+        if (!existingIds.has(String(sp.id))) {
+          try{ 
+            sp._temp = false; 
+            sp.canDelete = String(sp.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase(); 
+          }catch(e){}
+          existingProps.push(sp);
+        }
+      });
+      
+      return { ...(s || {}), proposals: existingProps };
+    });
+  }
+
+  // CRITICAL FIX: ALWAYS merge optimistic proposals (don't skip this!)
+  if (window.ProposalsModule && ProposalsModule.mergeOptimisticStudents) {
+    globalData.studentsByClass[className] = ProposalsModule.mergeOptimisticStudents(className, globalData.studentsByClass[className]);
+  }
+  
+  // Also update ProposalsCore state if available (for caching purposes)
+  if (window.ProposalsCore && ProposalsCore.setStudentsForClass) {
+    try { 
+      ProposalsCore.setStudentsForClass(className, globalData.studentsByClass[className]); 
+    } catch(e){ 
+      console.error('ProposalsCore.setStudentsForClass failed', e); 
+    }
+  }
+}
+
+// Apply an entire server payload into globalData in a safe way (merging student lists)
+function applyServerData(newData) {
+  if (!newData) return;
+  globalData = globalData || {};
+
+  try{ console.debug('[DBG] applyServerData called', { keys: Object.keys(newData||{}) }); }catch(e){}
+
+  // shallow copy other top-level properties
+  Object.keys(newData).forEach(k => {
+    if (k === 'studentsByClass') return;
+    globalData[k] = newData[k];
+  });
+
+  if (newData.studentsByClass) {
+    globalData.studentsByClass = globalData.studentsByClass || {};
+    Object.keys(newData.studentsByClass).forEach(cls => {
+      try{ console.debug('[DBG] applyServerData merging class', cls, { count: (newData.studentsByClass[cls]||[]).length }); }catch(e){}
+      // SIMPLIFIED: Always use mergeServerStudents (handles everything including optimistic merge)
+      mergeServerStudents(cls, newData.studentsByClass[cls]);
+    });
+  }
+}
+
+// Reconcile all optimistic entries against current globalData (useful after deletes)
+function reconcileAllOptimistic() {
+  if (window.ProposalsModule && ProposalsModule.reconcileAllOptimistic) return ProposalsModule.reconcileAllOptimistic();
+}
+
+// Funktion global definieren
+function renderTeacherView(container) {
+  container.innerHTML =
+    '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Lade Daten...</p></div>';
+
+  // Lade nur die Klassennamen und Phaseninfos (leichtgewichtig)
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data || data.success === false) {
+        container.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
+        return;
+      }
+      globalData = data;
+      buildTeacherInterface(container, data.classNames, data.phase, data.phaseDescription);
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
+    })
+    .getTeacherSummary();
+}
+
+// Neue Funktion: Interface mit Dropdown sofort anzeigen
+function buildTeacherInterface(container, classNames, phase, phaseDescription) {
+  let phaseBadge = phase === 'PROPOSAL'
+    ? '<span class="text-warning"><i class="fa-solid fa-pen-to-square"></i> VORSCHLAGSPHASE</span>'
+    : '<span class="text-success"><i class="fa-solid fa-check-to-slot"></i> ABSTIMMUNGSPHASE</span>';
+
+  let html = `
+    <div class="header-panel">
+        <div class="header-info">
+            <div class="header-title">${phaseBadge}</div>
+            <div class="header-sub">${phaseDescription || ""}</div>
+        </div>
+        <div style="width: 200px;">
+            <div class="input-group">
+                <span class="input-group-text bg-dark border-secondary text-secondary" style="padding: 6px 10px;"><i class="fa-solid fa-users"></i></span>
+                <select class="form-select bg-dark text-light border-secondary" style="font-size:13px; padding: 6px;" id="class-select">
+                  <option value="" selected disabled>-- Klasse --</option>
+                  ${classNames.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="search-container mt-3">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="student-search" class="search-input" placeholder="Schüler suchen..." oninput="handleStudentSearch(this.value)">
+    </div>
+    <div id="student-list-area"></div>
+  `;
+  container.innerHTML = html;
+
+  const listArea = document.getElementById('student-list-area');
+  if (listArea) {
+    listArea.innerHTML = '<div class="search-hint-card">Bitte eine Klasse auswählen oder mindestens 2 Zeichen eingeben, um alle Schüler zu durchsuchen.</div>';
+  }
+
+  // Event-Listener für Lazy Loading
+  const select = document.getElementById('class-select');
+  if (select) {
+    select.addEventListener('change', function() {
+      const className = this.value;
+      renderStudentListLazy(className);
+    });
+  }
+
+  // Subscribe to ProposalsCore updates so UI updates when core state changes
+  try{
+    if(window.ProposalsCore && ProposalsCore.subscribe){
+      ProposalsCore.subscribe((type, payload) => {
+        try{
+          const sel = document.getElementById('class-select');
+          const current = sel ? sel.value : null;
+          if(payload && payload.className && current && String(payload.className) === String(current)){
+            // re-render current class when proposals change
+            renderStudentList(current);
+          }
+        }catch(e){}
+      });
+    }
+  }catch(e){}
+}
+
+// Neue Funktion: Lädt die Schülerdaten erst bei Auswahl
+function renderStudentListLazy(className) {
+  const listArea = document.getElementById('student-list-area');
+  if (globalSearchDebounce) {
+    clearTimeout(globalSearchDebounce);
+    globalSearchDebounce = null;
+  }
+  globalSearchRequestId++;
+  if (!className) {
+    listArea.innerHTML = '';
+    return;
+  }
+  // Token MUSS am Anfang definiert werden, damit alle async Callbacks Zugriff haben
+  const token = Date.now();
+  classRequestToken[className] = token;
+
+  // 1. Prüfen, ob Daten bereits im Frontend-Cache sind
+  if (globalData.studentsByClass && globalData.studentsByClass[className]) {
+    renderStudentList(className);
+    // Proposals trotzdem im Hintergrund aktualisieren
+    refreshProposalsInBackground(className);
+    return;
+  }
+
+  listArea.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Lade Schülerdaten...</p></div>';
+  
+  // Client-side cache: check localStorage for cached class by version
+  let cacheWasUsed = false;
+  try {
+    const cacheKey = 'class_cache_' + encodeURIComponent(className);
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.classVersion && parsed.className === className) {
+          // Use cached students immediately. Preserve any cached proposals so
+          // newly created proposals remain visible after a reload. We still
+          // refresh proposals in background to get authoritative server data.
+          const studentsFromCache = (parsed.students || []).map(s => ({
+            ...s,
+            proposals: Array.isArray(s.proposals) ? s.proposals : []
+          }));
+          // Wichtig: Phase nicht aus dem Cache übernehmen, um falsche Ansicht zu vermeiden
+          applyServerData({ studentsByClass: { [className]: studentsFromCache } });
+          cacheWasUsed = true;
+        }
+      } catch (e) { /* ignore parse errors */ }
+    }
+  } catch (e) { /* ignore localStorage errors */ }
+
+  // Wenn Cache verwendet wurde, nur Phase + Proposals nachladen (parallel)
+  if (cacheWasUsed) {
+    renderStudentList(className); // Sofort mit gecachten Daten rendern
+    
+    let phaseData = null;
+    let proposalData = null;
+    let phaseSuccess = false;
+    let proposalSuccess = false;
+    let cacheLoadCount = 0;
+    
+    const finishCacheLoad = () => {
+      if (cacheLoadCount < 2) return;
+      if (classRequestToken[className] !== token) return;
+      
+      // Nur nochmal rendern, wenn beide fertig sind (für Feintuning)
+      renderStudentList(className);
+    };
+    
+    // Parallel: Phase + Proposals (oder Proposals mit automatischen Votes wenn VOTING)
+    google.script.run
+      .withSuccessHandler(summary => {
+        if (classRequestToken[className] !== token) return;
+        phaseSuccess = true;
+        phaseData = summary;
+        
+        // Phase sofort updaten
+        if (summary) {
+          globalData.phase = summary.phase || globalData.phase;
+          globalData.phaseDescription = summary.phaseDescription || globalData.phaseDescription;
+        }
+        
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .withFailureHandler(() => {
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .getTeacherSummary();
+    
+    // Proposals mit ensureCreatorVotes kombiniert
+    google.script.run
+      .withSuccessHandler(propData => {
+        if (classRequestToken[className] !== token) return;
+        proposalSuccess = true;
+        proposalData = propData;
+        
+        // SOFORT Proposals mergen und anzeigen
+        if (propData && propData.success !== false) {
+          const map = propData.proposalsByStudent || {};
+          const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+          students.forEach(s => {
+            const existing = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+            const serverList = Array.isArray(map[s.id]) ? map[s.id] : [];
+            const existingIds = new Set(existing.map(p => String(p.id)));
+            serverList.forEach(sp => {
+              if (!existingIds.has(String(sp.id))) {
+                try{ sp._temp = false; sp.canDelete = String(sp.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase(); }catch(e){}
+                existing.push(sp);
+              }
+            });
+            s.proposals = existing;
+          });
+          applyServerData({ studentsByClass: { [className]: students } });
+          
+          // Cache aktualisieren
+          try {
+            const cacheKey = 'class_cache_' + encodeURIComponent(className);
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              parsed.students = students;
+              localStorage.setItem(cacheKey, JSON.stringify(parsed));
+            }
+          } catch (e) { /* ignore */ }
+          
+          // SOFORT renderWindow aufrufen - updated nur sichtbare Zellen
+          if (window.currentRenderWindow) {
+            try { window.currentRenderWindow(); } catch(e) { console.error('renderWindow failed:', e); }
+          }
+        }
+        
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .withFailureHandler(() => {
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .getProposalsForClassAndEnsureVotes(className);
+    return;
+  }
+
+  // Token bereits am Anfang definiert
+  // const token = Date.now();  <-- ENTFERNT, wird oben definiert
+  
+  // Starte BEIDE Requests parallel (statt sequential)
+  let studentData = null;
+  let proposalData = null;
+  let studentSuccess = false;
+  let proposalSuccess = false;
+  let callCount = 0;
+  
+  const finishLoad = () => {
+    // Warte bis beide Responses zurück sind
+    if (callCount < 2) return;
+    if (classRequestToken[className] !== token) return;
+    
+    // Proposals wurden bereits verarbeitet, nochmal rendern falls nötig
+    if (proposalSuccess && proposalData && proposalData.success !== false) {
+      renderStudentList(className);
+    }
+  };
+  
+  // Request 1: Students + Phase
+  google.script.run
+    .withSuccessHandler(data => {
+      if (classRequestToken[className] !== token) return;
+      if (!data || data.success === false) {
+        listArea.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
+        return;
+      }
+      studentSuccess = true;
+      studentData = data;
+      
+      // SOFORT anzeigen ohne auf Proposals zu warten
+      globalData.phase = data.phase;
+      globalData.phaseDescription = data.phaseDescription;
+      applyServerData({ 
+        phase: data.phase, 
+        phaseDescription: data.phaseDescription, 
+        studentsByClass: { [className]: (data.studentsByClass && data.studentsByClass[className]) || [] } 
+      });
+      
+      // Cache speichern
+      try {
+        const cacheKey = 'class_cache_' + encodeURIComponent(className);
+        const toStore = { 
+          className: className, 
+          classVersion: data.classVersion || null, 
+          students: (data.studentsByClass && data.studentsByClass[className]) || [], 
+          phase: data.phase, 
+          phaseDescription: data.phaseDescription 
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(toStore));
+      } catch (e) { /* ignore localStorage errors */ }
+      
+      // SOFORT rendern (Schüler + Bilder werden sofort sichtbar)
+      renderStudentList(className);
+      
+      callCount++;
+      finishLoad();
+    })
+    .withFailureHandler(err => {
+      callCount++;
+      finishLoad();
+    })
+    .getStudentsForClassLight(className);
+  
+  // Request 2: Proposals (parallel!) - mit ensureCreatorVotes kombiniert für VOTING phase
+  google.script.run
+    .withSuccessHandler(propData => {
+      if (classRequestToken[className] !== token) return;
+      proposalSuccess = true;
+      proposalData = propData;
+      
+      // SOFORT verarbeiten und anzeigen
+      if (propData && propData.success !== false) {
+        const map = propData.proposalsByStudent || {};
+        const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+        students.forEach(s => {
+          const existing = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+          const serverList = Array.isArray(map[s.id]) ? map[s.id] : [];
+          const existingIds = new Set(existing.map(p => String(p.id)));
+          serverList.forEach(sp => {
+            if (!existingIds.has(String(sp.id))) {
+              try{
+                sp._temp = false;
+                sp.canDelete = String(sp.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase();
+              }catch(e){}
+              existing.push(sp);
+            }
+          });
+          s.proposals = existing;
+        });
+        applyServerData({ studentsByClass: { [className]: students } });
+        
+        // Cache mit Proposals aktualisieren
+        try {
+          const cacheKey = 'class_cache_' + encodeURIComponent(className);
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            parsed.students = students;
+            localStorage.setItem(cacheKey, JSON.stringify(parsed));
+          }
+        } catch (e) { /* ignore */ }
+        
+        // SOFORT renderWindow aufrufen - updated nur sichtbare Zellen
+        if (window.currentRenderWindow) {
+          try { window.currentRenderWindow(); } catch(e) { console.error('renderWindow failed:', e); }
+        }
+      }
+      
+      callCount++;
+      finishLoad();
+    })
+    .withFailureHandler(err => {
+      callCount++;
+      finishLoad();
+    })
+    .getProposalsForClassAndEnsureVotes(className);
+    
+}
+
+function showProposalsLoading(className) {
+  const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+  students.forEach(s => {
+    const cell = document.getElementById(`proposals-cell-${s.id}`);
+    if (cell) {
+      cell.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-muted" style="width:0.9rem; height:0.9rem;"></div></div>';
+    }
+  });
+}
+
+function refreshProposalsInBackground(className) {
+  google.script.run
+    .withSuccessHandler(propData => {
+      if (propData && propData.success !== false) {
+        const map = propData.proposalsByStudent || {};
+        try{
+          // Prefer ProposalsCore to merge/confirm server proposals
+          if(window.ProposalsCore && ProposalsCore.confirmServerMap){
+            ProposalsCore.confirmServerMap(map);
+            // Update UI from consolidated state
+            try{ updateUIWithoutReload(className); }catch(e){}
+            // Persist cache from core
+            try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(className); }catch(e){}
+            return;
+          }
+        }catch(e){ console.error('refreshProposalsInBackground ProposalsCore.confirmServerMap failed', e); }
+
+        // Fallback: previous merge behavior
+        const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+        students.forEach(s => {
+          const existing = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+          const serverList = Array.isArray(map[s.id]) ? map[s.id] : [];
+          const existingIds = new Set(existing.map(p => String(p.id)));
+          serverList.forEach(sp => {
+            if (!existingIds.has(String(sp.id))) existing.push(sp);
+          });
+          s.proposals = existing;
+        });
+        applyServerData({ studentsByClass: { [className]: students } });
+        updateUIWithoutReload(className);
+
+        // Cache mit Proposals aktualisieren
+        try {
+          const cacheKey = 'class_cache_' + encodeURIComponent(className);
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            parsed.students = students; // Mit Proposals
+            localStorage.setItem(cacheKey, JSON.stringify(parsed));
+          }
+        } catch (e) { /* ignore */ }
+      }
+    })
+    .withFailureHandler(err => { console.error('Failed to refresh proposals in background:', err); })
+    .getProposalsForClass(className);
+}
+
+function renderStudentList(className) {
+  const listArea = document.getElementById('student-list-area');
+  // Prefer ProposalsCore state if available
+  let cached = null;
+  try{
+    if(window.ProposalsCore && ProposalsCore.getState){
+      const st = ProposalsCore.getState();
+      if(st && st.studentsByClass && st.studentsByClass[className]) cached = st.studentsByClass[className];
+    }
+  }catch(e){}
+  if(!cached) cached = globalData.studentsByClass ? globalData.studentsByClass[className] : null;
+  const phase = globalData.phase;
+
+  if (!cached) {
+    listArea.innerHTML = '<div class="alert alert-warning">Keine Schülerdaten für diese Klasse geladen.</div>';
+    return;
+  }
+  
+  // Suchfeld zurücksetzen bei Klassenwechsel
+  const searchInput = document.getElementById('student-search');
+  const keepQuery = pendingStudentFocus && pendingStudentFocus.className === className;
+  if (searchInput && !keepQuery) searchInput.value = '';
+
+  const enriched = mergeOptimisticStudents(className, cached);
+  const filtered = (enriched||[]).map(s => ({
+    ...s,
+    proposals: (s.proposals || []).filter(p => !pendingDeletions.has(p.id))
+  }));
+
+  // Chunked rendering: avoid blocking the main thread when many rows
+  renderStudentTableChunked(listArea, filtered, phase);
+
+  if (pendingStudentFocus && pendingStudentFocus.className === className) {
+    focusStudentRow(pendingStudentFocus.studentId);
+    pendingStudentFocus = null;
+  }
+}
+
+function renderStudentTableChunked(container, students, phase) {
+  // Virtual scrolling implementation
+  if (!container) return;
+  const isProposal = (phase === 'PROPOSAL');
+  const isVoting = (phase === 'VOTING');
+  console.debug('[renderStudentTableChunked] Phase:', phase, 'isProposal:', isProposal, 'isVoting:', isVoting, 'students:', students.length);
+  const rowHeight = 170; // px per row (increased to accommodate multiple proposals)
+  const buffer = 6; // rows to render before/after viewport
+  
+  // Speichere className und Student-IDs für späteres Lookup
+  const className = students.length > 0 ? students[0].klasse : '';
+  const studentIds = students.map(s => s.id);
+
+  // Build scrollable wrapper
+  container.innerHTML = `
+    <div class="virtual-list" style="height:600px; overflow:auto; position:relative;">
+      <div class="spacer" style="width:100%;"></div>
+      <div class="visible-rows" style="position:absolute; left:0; right:0; top:0;"></div>
+    </div>`;
+
+  const wrapper = container.querySelector('.virtual-list');
+  const spacer = wrapper.querySelector('.spacer');
+  const visible = wrapper.querySelector('.visible-rows');
+
+  const total = studentIds.length;
+  spacer.style.height = (total * rowHeight) + 'px';
+
+  function renderWindow() {
+    const scrollTop = wrapper.scrollTop;
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+    const visibleCount = Math.ceil(wrapper.clientHeight / rowHeight) + buffer * 2;
+    const end = Math.min(total, start + visibleCount);
+
+    // Phase bei jedem Render neu auslesen, um Konsistenz zu garantieren
+    const currentPhase = globalData.phase || phase;
+    const isCurrentProposal = (currentPhase === 'PROPOSAL');
+    const isCurrentVoting = (currentPhase === 'VOTING');
+
+    // Hole aktuelle Schülerdaten aus globalData (nicht aus Snapshot)
+    const currentStudents = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+    const studentMap = {};
+    currentStudents.forEach(s => { studentMap[s.id] = s; });
+
+    let html = '';
+    for (let i = start; i < end; i++) {
+      const studentId = studentIds[i];
+      const s = studentMap[studentId];
+      if (!s) continue;
+      
+      let proposalsHtml = '';
+      
+      // Verwende aktuelle Phase-Flags
+      if (isCurrentProposal) {
+        proposalsHtml = getProposalListHtml(s, s.klasse);
+      } else if (isCurrentVoting) {
+        proposalsHtml = getVotingProposalsHtml(s);
+      }
+      
+      // Eingabefeld nur in PROPOSAL-Phase
+      const inputHtml = isCurrentProposal ? `<div id="input-container-${s.id}">${generateInputRowHtml(s.id, `in-${s.id}-0`, s.vorname)}</div>` : '';
+      
+      const top = i * rowHeight;
+      html += `<div class="student-row" data-student-id="${s.id}" data-class-name="${s.klasse}" style="position:absolute; left:0; right:0; top:${top}px; min-height:${rowHeight}px; box-sizing:border-box; padding:8px;">
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="flex:0 0 180px;">${getStudentInfoHtml(s)}</div>
+            <div style="flex:1; max-height:${rowHeight - 20}px; overflow:visible;" id="proposals-cell-${s.id}">${proposalsHtml}</div>
+            <div style="flex:0 0 360px;">${inputHtml}</div>
+          </div>
+        </div>`;
+    }
+
+    visible.innerHTML = html;
+    // Re-init photo observer for newly rendered images
+    try { initPhotoObserver(); } catch (e) {}
+  }
+
+  // Attach scroll handler
+  wrapper.addEventListener('scroll', throttle(renderWindow, 50));
+  // Speichere renderWindow global, damit Proposal-Updates triggern können
+  window.currentRenderWindow = renderWindow;
+  // initial render
+  renderWindow();
+}
+
+function handleStudentSearch(query) {
+  const select = document.getElementById('class-select');
+  const currentClass = select ? select.value : '';
+  if (currentClass) {
+    filterStudentsInClass(currentClass, query);
+  } else {
+    performGlobalStudentSearch(query);
+  }
+}
+
+function filterStudentsInClass(className, query) {
+  const q = String(query || '').toLowerCase().trim();
+  const rows = document.querySelectorAll(`.student-row[data-student-id]`);
+  rows.forEach(row => {
+    if (row.dataset.className && row.dataset.className !== className) {
+      // rows from anderen Klassen sind aktuell nicht sichtbar
+      row.style.display = '';
+      return;
+    }
+    const name = row.querySelector('.student-name')?.innerText.toLowerCase() || '';
+    const firstname = row.querySelector('.student-firstname')?.innerText.toLowerCase() || '';
+    if (!q || name.includes(q) || firstname.includes(q)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+function performGlobalStudentSearch(query) {
+  const listArea = document.getElementById('student-list-area');
+  if (!listArea) return;
+
+  const trimmed = String(query || '').trim();
+  if (globalSearchDebounce) {
+    clearTimeout(globalSearchDebounce);
+    globalSearchDebounce = null;
+  }
+
+  if (!trimmed) {
+    globalSearchRequestId++;
+    listArea.innerHTML = '<div class="search-hint-card">Bitte eine Klasse auswählen oder mindestens 2 Zeichen eingeben, um zu suchen.</div>';
+    return;
+  }
+
+  if (trimmed.length < 2) {
+    globalSearchRequestId++;
+    listArea.innerHTML = '<div class="search-hint-card">Bitte mindestens 2 Zeichen eingeben.</div>';
+    return;
+  }
+
+  const requestId = ++globalSearchRequestId;
+  listArea.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Durchsuche alle Klassen...</p></div>';
+
+  const searchTerm = trimmed;
+  globalSearchDebounce = setTimeout(() => {
+    globalSearchDebounce = null;
+    google.script.run
+      .withSuccessHandler(res => {
+        if (requestId !== globalSearchRequestId) return;
+        if (!res || res.success === false) {
+          const errMsg = (res && res.error) ? res.error : 'Unbekannter Fehler';
+          listArea.innerHTML = `<div class="alert alert-danger">Suche fehlgeschlagen: ${errMsg}</div>`;
+          return;
+        }
+        renderGlobalSearchResults(res.results || [], searchTerm, !!res.limited, res.totalMatches || (res.results || []).length);
+      })
+      .withFailureHandler(err => {
+        if (requestId !== globalSearchRequestId) return;
+        listArea.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
+      })
+      .searchStudentsAcrossClasses(searchTerm, 25);
+  }, 250);
+}
+
+// Throttle helper
+function throttle(fn, wait){
+  let last = 0, timeout = null;
+  return function(){
+    const now = Date.now();
+    const args = arguments;
+    const later = function(){ last = Date.now(); timeout = null; fn.apply(null, args); };
+    if(now - last >= wait){ last = now; fn.apply(null, args); }
+    else if(!timeout){ timeout = setTimeout(later, wait - (now - last)); }
+  };
+}
+
+// Photo lazy-load using IntersectionObserver
+let _photoObserver = null;
+function initPhotoObserver(){
+  try{
+    if(typeof IntersectionObserver === 'undefined') return;
+    // Always (re)create observer so its root is the current virtual-list wrapper
+    try { if(_photoObserver) { _photoObserver.disconnect(); _photoObserver = null; } } catch(e) {}
+
+    const rootEl = document.querySelector('.virtual-list') || null;
+    _photoObserver = new IntersectionObserver(entries => {
+      entries.forEach(ent => {
+        if(!ent.isIntersecting) return;
+        const img = ent.target;
+        const src = img.dataset && img.dataset.src;
+        if(src){ img.src = src; }
+        try { _photoObserver.unobserve(img); } catch(e) {}
+      });
+    }, { root: rootEl, rootMargin: '200px' });
+
+    // observe any currently rendered images inside the root (or whole document if no root)
+    const toObserve = rootEl ? rootEl.querySelectorAll('img.photo-lazy') : document.querySelectorAll('img.photo-lazy');
+    toObserve.forEach(img => { if(img.dataset && img.dataset.src) _photoObserver.observe(img); });
+  }catch(e){ console.error('initPhotoObserver failed', e); }
+}
+
+function renderGlobalSearchResults(results, query, limited, totalMatches) {
+  const listArea = document.getElementById('student-list-area');
+  if (!listArea) return;
+
+  if (!results || results.length === 0) {
+    listArea.innerHTML = `<div class="search-hint-card">Keine Treffer für „${query}“ gefunden.</div>`;
+    return;
+  }
+
+  let html = '<div class="global-search-results">';
+  results.forEach(entry => { html += buildGlobalResultCard(entry); });
+  html += '</div>';
+
+  if (limited) {
+    html += `<div class="search-hint-card info">Nur die ersten ${results.length} von ${totalMatches} Treffern werden angezeigt.</div>`;
+  }
+
+  listArea.innerHTML = html;
+}
+
+function buildGlobalResultCard(entry) {
+  const initials = ((entry.vorname ? entry.vorname[0] : '') + (entry.nachname ? entry.nachname[0] : '')).trim().toUpperCase() || '?';
+  const photoHtml = entry.photoUrl
+    ? `<img src="${entry.photoUrl}" alt="${entry.vorname || ''} ${entry.nachname || ''}" loading="lazy">`
+    : `<div class="result-avatar-fallback">${initials}</div>`;
+  const klass = encodeURIComponent(entry.klasse || '');
+  const student = encodeURIComponent(entry.id || '');
+
+  return `
+    <div class="global-result-card">
+      <div class="global-result-left">
+        <div class="result-avatar">${photoHtml}</div>
+        <div>
+          <div class="result-name">${entry.nachname || ''}, ${entry.vorname || ''}</div>
+          <div class="result-meta">${entry.klasse || '-'} • ${(entry.email || '').split('@')[0] || 'kein Login'}</div>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline-info" onclick="loadStudentFromGlobalSearch('${klass}', '${student}')">
+        Klasse öffnen
+      </button>
+    </div>
+  `;
+}
+
+function loadStudentFromGlobalSearch(encodedClass, encodedStudentId) {
+  const className = decodeURIComponent(encodedClass || '');
+  const studentId = decodeURIComponent(encodedStudentId || '');
+  if (!className || !studentId) return;
+
+  const select = document.getElementById('class-select');
+  if (select) {
+    select.value = className;
+  }
+  pendingStudentFocus = { className, studentId };
+  handleStudentSearch(''); // sorgt dafür, dass bei geöffnetem Dropdown kein alter Filter aktiv ist
+  renderStudentListLazy(className);
+}
+
+function focusStudentRow(studentId) {
+  if (!studentId) return;
+  setTimeout(() => {
+    const row = Array.from(document.querySelectorAll('.student-row')).find(r => r.dataset.studentId === studentId);
+    if (!row) return;
+    row.classList.add('student-row-highlight');
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => row.classList.remove('student-row-highlight'), 2000);
+  }, 150);
+}
+
+// ===============================================
+// VIEW: PROPOSAL (Vorschlagsphase)
+// ===============================================
+
+function renderProposalMatrix(container, students) {
+  // Kommentare laden, falls noch nicht geschehen
+  loadCommentsDict();
+  
+  let html = `
+    <table class="app-table">
+        <thead>
+          <tr>
+            <th class="col-student">SCHÜLER</th>
+            <th>BESTEHENDE VORSCHLÄGE</th>
+            <th style="width: 350px;">NEUE EINTRÄGE</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  students.forEach(s => {
+    html += `
+      <tr class="student-row" data-student-id="${s.id}" data-class-name="${s.klasse}">
+        <td>${getStudentInfoHtml(s)}</td>
+        <td id="proposals-cell-${s.id}">${getProposalListHtml(s, s.klasse)}</td>
+        <td>
+          <div id="input-container-${s.id}">${generateInputRowHtml(s.id, `in-${s.id}-0`, s.vorname)}</div>
+        </td>
+      </tr>
+    `;
+  });
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+function getProposalListHtml(s, className) {
+  if (window.ProposalsModule && ProposalsModule.getProposalListHtml) return ProposalsModule.getProposalListHtml(s, className);
+  return '';
+}
+
+function getVotingProposalsHtml(s) {
+  if (window.ProposalsModule && ProposalsModule.getVotingProposalsHtml) return ProposalsModule.getVotingProposalsHtml(s);
+  return '';
+}
+
+function generateInputRowHtml(studentId, uniqueInputId, firstName) {
+  const btnId = `btn-${uniqueInputId}`;
+  return `
+    <div class="custom-input-group fade-in-row" id="group-${uniqueInputId}">
+      <input type="text" class="custom-input proposal-input"
+             id="${uniqueInputId}"
+             data-studentid="${studentId}"
+             data-firstname="${firstName}"
+             data-btnid="${btnId}"
+             placeholder="Bemerkung eingeben..."
+             autocomplete="off"
+             onblur="autoSaveProposal(this)"
+             onkeydown="if(event.key === 'Enter') { this.blur(); }"
+             oninput="clearFieldError(this)">
+
+      <button id="${btnId}" class="input-status-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+         <i class="fa-solid fa-chevron-down"></i>
+      </button>
+
+      <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+         <li><h6 class="dropdown-header">Textbaustein wählen</h6></li>
+         ${typeof globalComments !== "undefined" && Array.isArray(globalComments)
+            ? globalComments.map(c =>
+                `<li><a class="dropdown-item small" href="#" onclick="applyComment('${uniqueInputId}', '${c.id}'); return false;"><span class="text-primary fw-bold">[${c.category}]</span> ${c.text}</a></li>`
+              ).join('')
+            : ''
+         }
+      </ul>
+    </div>
+    <div class="field-error-message hidden" id="err-${uniqueInputId}"></div>
+  `;
+} 
+
+// --- OPTIMISTIC AUTO-SAVE (Sofortiges Feedback) ---
+function validateProposalText(text) {
+  const t = String(text || "").trim();
+  if (t.length === 0) return { valid: false, message: "Eingabe ist leer" };
+  if (t.length < 5) return { valid: false, message: "Zu kurz (mindestens 5 Zeichen)" };
+  if (t.length > 500) return { valid: false, message: "Zu lang (max. 500 Zeichen)" };
+  return { valid: true };
+}
+
+function showFieldError(inputElement, message) {
+  try {
+    const group = inputElement ? document.getElementById('group-' + inputElement.id) : null;
+    if (group) group.classList.add('error');
+    const errEl = document.getElementById('err-' + inputElement.id);
+    if (errEl) { errEl.innerText = message; errEl.classList.remove('hidden'); }
+    inputElement.focus();
+  } catch (e) { console.error(e); }
+}
+
+function clearFieldError(inputElement) {
+  try {
+    const group = inputElement ? document.getElementById('group-' + inputElement.id) : null;
+    if (group) group.classList.remove('error');
+    const errEl = document.getElementById('err-' + inputElement.id);
+    if (errEl) { errEl.innerText = ""; errEl.classList.add('hidden'); }
+  } catch (e) { /* ignore */ }
+}
+
+function autoSaveProposal(inputElement) {
+  if (window.ProposalsModule && ProposalsModule.autoSaveProposal) return ProposalsModule.autoSaveProposal(inputElement);
+}
+
+// ===============================================
+// VIEW: VOTING
+// ===============================================
+
+
+function getStudentInfoHtml(s) {
+  const hasPhoto = Boolean(s.photoUrl);
+  // Prüfe ob Foto bereits im Cache ist
+  const isCached = loadedPhotos.has(s.id);
+  const loader = (hasPhoto && !isCached) ? '<div class="photo-loader-overlay"><div class="mini-spinner"></div></div>' : '';
+  // Use data-src for IntersectionObserver lazy loading; set placeholder src immediately
+  const dataSrcAttr = hasPhoto ? `data-src="${s.photoUrl}"` : '';
+  // Wenn bereits gecacht, setze sofort die richtige URL, sonst Placeholder
+  const initialSrc = isCached ? s.photoUrl : STUDENT_PHOTO_PLACEHOLDER;
+  const initialOpacity = isCached ? '1' : '0.65';
+
+  return `
+    <div class="d-flex align-items-center gap-3">
+      <div id="photo-wrap-${s.id}" class="photo-wrapper">
+        ${loader}
+        <img class="photo-lazy" id="photo-${s.id}" src="${initialSrc}"
+             ${dataSrcAttr}
+             loading="lazy" decoding="async" width="70" height="85"
+             onload="handleStudentPhotoLoad('${s.id}')"
+             onerror="handleStudentPhotoError('${s.id}')"
+             style="width:100%; height:100%; object-fit:cover; opacity:${initialOpacity}; transition:opacity 0.3s;">
+      </div>
+      <div>
+        <div class="student-name">${s.nachname || ""}</div>
+        <div class="student-firstname">${s.vorname || ""}</div>
+      </div>
+    </div>
+  `;
+}
+
+function handleStudentPhotoLoad(studentId) {
+  const wrap = document.getElementById(`photo-wrap-${studentId}`);
+  if (wrap) {
+    const overlay = wrap.querySelector('.photo-loader-overlay');
+    if (overlay) overlay.remove();
+  }
+  const img = document.getElementById(`photo-${studentId}`);
+  if (img) {
+    img.style.opacity = '1';
+    // Speichere erfolgreich geladenes Foto im Cache
+    loadedPhotos.set(studentId, true);
+  }
+}
+
+function handleStudentPhotoError(studentId) {
+  const img = document.getElementById(`photo-${studentId}`);
+  if (!img) return;
+  if (img.dataset.fallbackApplied === '1') {
+    handleStudentPhotoLoad(studentId);
+    return;
+  }
+  img.dataset.fallbackApplied = '1';
+  img.src = STUDENT_PHOTO_PLACEHOLDER;
+  handleStudentPhotoLoad(studentId);
+}
+
+function updateUIWithoutReload(className) {
+  // Update only the proposal cells that are currently rendered (visible in DOM)
+  // Virtual scrolling means not all student rows exist in DOM at once
+  const students = globalData.studentsByClass ? globalData.studentsByClass[className] : null;
+  if (!students) return;
+
+  students.forEach(s => {
+    const cell = document.getElementById(`proposals-cell-${s.id}`);
+    if (cell) {
+      const html = getProposalListHtml(s, className);
+      cell.innerHTML = html;
+    }
+  });
+}
+
+// Voting handler used by ProposalsModule.getVotingProposalsHtml
+function castVoteUI(proposalId, studentId, voteValue) {
+  try {
+    const myVotes = globalData.myVotes || {};
+    const currentVote = myVotes[proposalId] || 0;
+
+    // Toggle behaviour: clicking same vote again removes it
+    let newVote = voteValue;
+    if (currentVote === voteValue) newVote = 0;
+
+    // Optimistic UI update
+    myVotes[proposalId] = newVote;
+    globalData.myVotes = myVotes;
+
+    const selectEl = document.getElementById('class-select');
+    const currentClass = selectEl ? selectEl.value : '';
+    const students = (globalData.studentsByClass && globalData.studentsByClass[currentClass]) || [];
+    const student = students.find(s => String(s.id) === String(studentId));
+    // Optimistisch Zähler anpassen
+    if (student) {
+      const p = student.proposals.find(pp => String(pp.id) === String(proposalId));
+      if (p) {
+        const pos = Number(p.positiveCount || p.pos || 0);
+        const neg = Number(p.negativeCount || p.neg || 0);
+        let newPos = pos, newNeg = neg;
+        // remove previous vote effect
+        if (currentVote === 1) newPos -= 1;
+        if (currentVote === -1) newNeg -= 1;
+        // apply new vote effect
+        if (newVote === 1) newPos += 1;
+        if (newVote === -1) newNeg += 1;
+        p.positiveCount = Math.max(0, newPos);
+        p.negativeCount = Math.max(0, newNeg);
+      }
+    }
+    if (student) {
+      const cell = document.getElementById(`proposals-cell-${studentId}`);
+      if (cell) cell.innerHTML = getVotingProposalsHtml(student);
+    }
+
+    // Server call
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res || !res.success) {
+          console.error('castVote failed:', res);
+          showMessage('Fehler', (res && res.error) || 'Abstimmung fehlgeschlagen', 'error');
+          return;
+        }
+
+        // Update myVotes with authoritative value
+        myVotes[proposalId] = res.myVote || 0;
+        globalData.myVotes = myVotes;
+
+        // Update proposal counts in globalData
+        if (student) {
+          const p = student.proposals.find(pp => String(pp.id) === String(proposalId));
+          if (p) {
+            p.positiveCount = res.pos;
+            p.negativeCount = res.neg;
+            p.votersPos = res.votersPos ? res.votersPos.split(', ') : [];
+            p.votersNeg = res.votersNeg ? res.votersNeg.split(', ') : [];
+          }
+        }
+
+        // Re-render the proposals cell
+        const cell = document.getElementById(`proposals-cell-${studentId}`);
+        if (cell && student) cell.innerHTML = getVotingProposalsHtml(student);
+      })
+      .withFailureHandler(err => {
+        console.error('castVote network error:', err);
+        showMessage('Fehler', 'Netzwerkfehler: ' + err, 'error');
+        // Revert optimistic update
+        myVotes[proposalId] = currentVote;
+        globalData.myVotes = myVotes;
+        const cell = document.getElementById(`proposals-cell-${studentId}`);
+        if (cell && student) cell.innerHTML = getVotingProposalsHtml(student);
+      })
+      .castVote(proposalId, newVote);
+  } catch (e) {
+    console.error('castVoteUI error', e);
+  }
+}
+
+
+function addInputLine(studentId, firstName) {
+  const container = document.getElementById('input-container-' + studentId);
+  const newId = `in-${studentId}-${Date.now()}`;
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = generateInputRowHtml(studentId, newId, firstName);
+  container.appendChild(tempDiv.firstElementChild);
+
+  setTimeout(() => {
+    const el = document.getElementById(newId);
+    if (el) el.focus();
+  }, 50);
+}
+
+function applyComment(uniqueInputId, commentId) {
+  const input = document.getElementById(uniqueInputId);
+  const comment = (typeof globalComments !== "undefined" && Array.isArray(globalComments))
+    ? globalComments.find(c => c.id == commentId)
+    : null;
+
+  if (input && comment) {
+    let text = comment.text;
+    const firstName = input.dataset.firstname;
+    if (firstName) text = text.replace(/\$Vorname\$/g, firstName);
+    input.value = text;
+    input.focus();
+  }
+}
+
+function deleteEntry(proposalId) {
+  Swal.fire({
+    title: 'Löschen?',
+    text: 'Eintrag wirklich entfernen?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ja, löschen',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9',
+    heightAuto: false
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+
+    // Optimistic UI: mark as pending deletion and re-render class
+    pendingDeletions.add(proposalId);
+    const selectEl = document.getElementById('class-select') || document.querySelector('select');
+    const currentClass = selectEl ? selectEl.value : '';
+    if (currentClass) renderStudentList(currentClass);
+    else {
+      const row = document.getElementById('prop-row-' + proposalId);
+      if (row) { row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
+    }
+
+    // Server call
+    google.script.run
+      .withSuccessHandler(newData => {
+        pendingDeletions.delete(proposalId);
+        if (!newData || newData.success === false) {
+          console.error('deleteProposal failed', newData);
+          const msg = (newData && newData.message) || JSON.stringify(newData) || 'Löschen fehlgeschlagen.';
+          showMessage('Fehler', msg, 'error');
+          if (currentClass) renderStudentList(currentClass);
+          return;
+        }
+        // Merge server data into globalData while preserving optimistic entries
+        applyServerData(newData);
+        // Reconcile optimistic entries (clear temp badges/timeouts if server confirmed)
+        reconcileAllOptimistic();
+        if (currentClass) renderStudentList(currentClass);
+      })
+      .withFailureHandler(err => {
+        pendingDeletions.delete(proposalId);
+        console.error('deleteProposal() failed:', err);
+        showMessage('Fehler', 'Verbindung zum Server beim Löschen fehlgeschlagen.', 'error');
+        if (currentClass) renderStudentList(currentClass);
+      })
+      .deleteProposal(proposalId);
+  });
+}
+
+</script>

@@ -1,0 +1,205 @@
+<script>
+// ===============================================
+// MODUL: CORE (Navigation, Globals, Helpers)
+// ===============================================
+
+let globalData = {}; 
+let globalComments = [];
+let globalSearchDebounce = null;
+let globalSearchRequestId = 0;
+let classRequestToken = {};
+let pendingStudentFetch = {};
+
+// Weitere globale Variablen für Teacher-Modul
+var pendingStudentFocus = null;
+var pendingProposalSaves = {};
+var pendingDeletions = new Set();
+var STUDENT_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjEuNSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTYgMjF2LTJhNCA0IDAgMCAxIDQtNGg0YTQgNCAwIDAgMSA0IDR2MiIvPjwvc3ZnPg==';
+var loadedPhotos = new Map();
+
+// *** PRELOAD: Admin-Daten beim App-Start cachen (vor dem Login!) ***
+// Wird sofort aufgerufen - asynchron, blockiert nicht!
+runServer('getAdminInitData', null).catch(err => {
+  console.log('Admin preload nicht kritisch:', err);
+});
+
+// Hilfsfunktion: Text sicher für HTML konvertieren
+function escapeHtml(input) {
+  if (input === null || input === undefined) return '';
+  return String(input)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// --- INITIALISIERUNG ---
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("App gestartet");
+  // Standard-View laden
+  switchView('teacher');
+  // Kommentare werden erst geladen, wenn sie benötigt werden (lazy loading)
+});
+
+function loadCommentsDict() {
+  // Nur laden, wenn noch nicht geladen
+  if (globalComments && globalComments.length > 0) return;
+  google.script.run.withSuccessHandler(d => globalComments = d).getAvailableComments();
+}
+
+// --- HELPER: MODERN MESSAGE MODAL ---
+function showMessage(title, text, type = 'success') {
+  Swal.fire({
+    title: title, html: text, icon: type,
+    background: '#1e293b', color: '#f1f5f9', confirmButtonColor: '#06b6d4', heightAuto: false 
+  });
+}
+
+// --- STATUS BAR (Unten rechts) ---
+function showStatus(state, msg) {
+    const bar = document.getElementById('status-bar');
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    
+    if(!bar) return; // Falls View gewechselt wurde
+    
+    bar.classList.add('visible');
+    dot.className = 'status-dot ' + state;
+    txt.innerText = msg;
+    
+    if (state === 'saved') {
+        setTimeout(() => { 
+            if(bar) bar.classList.remove('visible'); 
+        }, 2000);
+    }
+}
+
+// --- NAVIGATION & AUTH CHECK ---
+async function switchView(view) {
+  // Aktiven Tab setzen
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  
+  if (view === 'admin') {
+    // Bootstrap Modal verwenden - KEIN SweetAlert mehr!
+    const modal = new bootstrap.Modal(document.getElementById('adminLoginModal'));
+    const passwordInput = document.getElementById('adminPasswordInput');
+    const loginBtn = document.getElementById('adminLoginBtn');
+    const errorDiv = document.getElementById('adminPasswordError');
+    const closeBtn = document.getElementById('adminModalCloseBtn');
+    
+    // Reset
+    passwordInput.value = '';
+    errorDiv.style.display = 'none';
+    loginBtn.disabled = false;
+    
+    // Modal öffnen
+    modal.show();
+    
+    // Focus auf Passwort-Feld
+    setTimeout(() => passwordInput.focus(), 300);
+    
+    // Enter-Taste im Passwort-Feld
+    const enterHandler = (e) => {
+      if (e.key === 'Enter') loginBtn.click();
+    };
+    passwordInput.addEventListener('keypress', enterHandler);
+    
+    // Login-Button Click
+    const loginHandler = async () => {
+      const password = passwordInput.value;
+      
+      if (!password) {
+        errorDiv.textContent = 'Bitte Passwort eingeben';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      
+      // Button deaktivieren während Prüfung
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Prüfe...';
+      
+      try {
+        const isValid = await runServer('verifyAdminPassword', password);
+        
+        if (isValid) {
+          // SOFORT Modal schließen und UI anzeigen (kein Warten auf Server-Calls!)
+          modal.hide();
+          document.getElementById('nav-admin').classList.add('active');
+          
+          // Admin-View sofort mit Lade-Spinner anzeigen (nicht blockierend!)
+          const appContent = document.getElementById('app-content');
+          appContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div><p class="mt-3 text-muted">Lade Admin-Bereich...</p></div>';
+          
+          // Echtes Admin-Interface asynchron im Hintergrund laden
+          setTimeout(() => renderAdminView(appContent), 10);
+          
+        } else {
+          // Fehler anzeigen
+          errorDiv.textContent = 'Falsches Passwort!';
+          errorDiv.style.display = 'block';
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Anmelden';
+          passwordInput.select();
+        }
+      } catch (error) {
+        errorDiv.textContent = 'Fehler: ' + error;
+        errorDiv.style.display = 'block';
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Anmelden';
+      }
+    };
+    
+    loginBtn.addEventListener('click', loginHandler, { once: true });
+    
+    // Cleanup wenn Modal geschlossen wird
+    document.getElementById('adminLoginModal').addEventListener('hidden.bs.modal', () => {
+      passwordInput.removeEventListener('keypress', enterHandler);
+      // Wenn Modal ohne Erfolg geschlossen -> zurück zu Lehrer
+      if (!document.getElementById('nav-admin').classList.contains('active')) {
+        document.getElementById('nav-teacher').classList.add('active');
+      }
+    }, { once: true });
+    
+    return; // Wichtig: Nicht weiter ausführen
+    
+  } else if (view === 'teacher') {
+    // Lehrer Bereich (Kein Passwort)
+    document.getElementById('nav-teacher').classList.add('active');
+    renderTeacherView(document.getElementById('app-content'));
+  }
+}
+
+// Hilfsfunktion für Promises (Server Calls)
+function runServer(funcName, data) {
+    return new Promise((resolve, reject) => {
+        google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            [funcName](data);
+    });
+}
+
+
+// --- ADMIN: INDEX NEU AUFBAUEN ---
+function rebuildIndexes() {
+  Swal.fire({
+    title: 'Index neu aufbauen?',
+    text: 'Das kann einige Sekunden dauern. Fortfahren?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Ja, starten',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9',
+    confirmButtonColor: '#06b6d4',
+    heightAuto: false
+  }).then((result) => {
+    if (result.isConfirmed) {
+      google.script.run.withSuccessHandler(function(res) {
+        showMessage('Index neu aufgebaut', '<pre>' + JSON.stringify(res, null, 2) + '</pre>', 'success');
+      }).rebuildIndexes();
+    }
+  });
+}
+</script>

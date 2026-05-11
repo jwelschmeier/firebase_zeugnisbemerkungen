@@ -1,0 +1,3805 @@
+<!DOCTYPE html>
+<html>
+  <head>
+        <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FSR-Cockpit -Zeugnisbemerkungen!</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" media="print" onload="this.media='all'">
+    <link href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" rel="stylesheet" media="print" onload="this.media='all'">
+    
+    <style>
+    /* --- VARIABLEN (Dark Professional Theme) --- */
+    :root {
+        --bg-dark: #0f172a;     
+        --card-bg: #1e293b;     
+        --text-light: #f1f5f9;  
+        --text-soft: #94a3b8;   
+        --primary-accent: #06b6d4; /* Cyan */
+        --secondary-accent: #64748b; 
+        --border-dark: #334155;
+        --input-bg: #0f172a;    
+        --warning: #f59e0b;
+        --success: #10b981; 
+        --danger: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+    
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0; padding: 0;
+        background: var(--bg-dark);
+        color: var(--text-light);
+        font-size: 13px; 
+        min-height: 100vh;
+    }
+
+    .app-main {
+        width: 90%; 
+        max-width: 1600px; 
+        margin: 0 auto; 
+        padding: 20px 0;
+    }
+
+    .app-title {
+        text-align: center; 
+        font-size: 22px; 
+        font-weight: 700;
+        color: var(--text-light);
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        display: flex; align-items: center; justify-content: center; gap: 10px;
+    }
+    .app-title i { color: var(--primary-accent); font-size: 26px; }
+
+    /* Navigation */
+    .nav-pills {
+        background: #1e293b; padding: 3px; border-radius: 6px;
+        border: 1px solid var(--border-dark); display: inline-flex; margin-bottom: 20px;
+        position: relative; left: 50%; transform: translateX(-50%);
+    }
+    .nav-pills .nav-link {
+        color: var(--text-soft); border-radius: 4px; padding: 5px 15px;
+        font-weight: 600; transition: all 0.2s; text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; text-decoration: none;
+    }
+    .nav-pills .nav-link:hover { color: var(--text-light); }
+    .nav-pills .nav-link.active { background: var(--primary-accent); color: #fff; box-shadow: 0 2px 5px rgba(6, 182, 212, 0.3); }
+
+    /* --- ADMIN TABS --- */
+    .admin-tabs-nav {
+        display: flex;
+        gap: 8px;
+        background: var(--card-bg);
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid var(--border-dark);
+    }
+    .admin-tab-btn {
+        flex: 1;
+        background: transparent;
+        border: 1px solid var(--border-dark);
+        color: var(--text-soft);
+        padding: 10px 16px;
+        border-radius: 6px;
+        font-weight: 600;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    .admin-tab-btn:hover {
+        background: rgba(51, 65, 85, 0.5);
+        color: var(--text-light);
+        border-color: var(--primary-accent);
+    }
+    .admin-tab-btn.active {
+        background: var(--primary-accent);
+        color: #fff;
+        border-color: var(--primary-accent);
+        box-shadow: 0 2px 8px rgba(6, 182, 212, 0.4);
+    }
+    .admin-tab-content {
+        display: none;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    .admin-tab-content.active {
+        display: block;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- HEADER (Zentriert) --- */
+    .header-panel {
+        background: var(--card-bg);
+        border: 1px solid var(--border-dark);
+        border-radius: 8px;
+        padding: 10px 30px;
+        margin-bottom: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 40px; 
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .header-info { text-align: center; }
+    .header-title { font-size: 15px; font-weight: 700; color: #fff; margin-bottom: 2px; }
+    .header-sub { font-size: 11px; color: var(--text-soft); }
+
+    /* --- ALLGEMEINE TABELLEN STYLES --- */
+    .app-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    .app-table th {
+        text-align: left; color: var(--primary-accent); font-weight: 800;
+        text-transform: uppercase; font-size: 10px; letter-spacing: 1px;
+        padding: 8px 15px; border-bottom: 1px solid var(--border-dark);
+        background: rgba(15, 23, 42, 0.8);
+    }
+    .student-row { background-color: var(--card-bg); border-bottom: 1px solid var(--border-dark); }
+    .student-row td { padding: 12px 15px; vertical-align: top; }
+    .student-row:hover { background-color: rgba(51, 65, 85, 0.3); }
+
+    /* Spaltenbreiten */
+    .col-student { width: 220px; } 
+    .col-content { width: auto; }
+
+    /* --- FOTO & NAME --- */
+    .photo-wrapper {
+        width: 70px; height: 85px; 
+        border-radius: 6px; border: 1px solid var(--border-dark);
+        background: #0f172a; position: relative; overflow: hidden; flex-shrink: 0;
+    }
+    .photo-loader-overlay { position: absolute; inset: 0; background: rgba(15,23,42,0.6); display: flex; align-items: center; justify-content: center; z-index: 2; transition: opacity 0.3s; }
+    .mini-spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--primary-accent); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .student-name { font-weight: 700; color: #fff; font-size: 15px; line-height: 1.2; margin-bottom: 2px; }
+    .student-firstname { color: var(--primary-accent); font-weight: 600; font-size: 13px; }
+
+    /* --- VOTING SPECIFIC STYLES --- */
+    .voting-list-container {
+        display: flex; flex-direction: column; gap: 4px;
+    }
+    .vote-item-row {
+        display: flex; justify-content: space-between; align-items: center;
+        background: #0f172a;
+        border: 1px solid var(--border-dark); border-radius: 4px;
+        padding: 8px 12px;
+        min-height: 45px;
+    }
+    
+    .vote-btn {
+        padding: 4px 10px; border-radius: 4px; font-weight: 700; font-size: 11px;
+        cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+        border: 1px solid transparent; min-width: 55px; justify-content: center;
+        transition: transform 0.1s;
+    }
+    .vote-btn:active { transform: scale(0.95); }
+    .vote-btn-up { background: rgba(16, 185, 129, 0.1); color: #10b981; border-color: #065f46; }
+    .vote-btn-up.active { background: #10b981; color: #fff; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
+    .vote-btn-down { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: #7f1d1d; }
+    .vote-btn-down.active { background: #ef4444; color: #fff; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+
+    /* --- SEARCH BAR --- */
+    .search-container {
+        position: relative;
+        margin-bottom: 15px;
+    }
+    .search-input {
+        width: 100%;
+        background: var(--input-bg);
+        border: 1px solid var(--border-dark);
+        border-radius: 6px;
+        padding: 8px 12px 8px 35px;
+        color: var(--text-light);
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.2s;
+    }
+    .search-input:focus {
+        border-color: var(--primary-accent);
+    }
+    .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-soft);
+        pointer-events: none;
+    }
+
+    .search-hint-card {
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px dashed var(--border-dark);
+        border-radius: 6px;
+        padding: 12px 16px;
+        color: var(--text-soft);
+        font-size: 13px;
+        text-align: center;
+    }
+    .search-hint-card.info {
+        border-style: solid;
+        color: var(--primary-accent);
+    }
+
+    .global-search-results {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .global-result-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: var(--card-bg);
+        border: 1px solid var(--border-dark);
+        border-radius: 6px;
+        padding: 10px 14px;
+        gap: 12px;
+    }
+    .global-result-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .result-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 1px solid var(--border-dark);
+        background: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        color: var(--primary-accent);
+    }
+    .result-avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    .result-avatar-fallback {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        letter-spacing: 0.5px;
+    }
+    .result-name { font-weight: 700; color: var(--text-light); }
+    .result-meta { font-size: 12px; color: var(--text-soft); }
+
+    .student-row-highlight {
+        outline: 2px solid var(--primary-accent);
+        box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+    }
+
+    /* --- PROPOSAL STYLES (Inputs) --- */
+    .existing-proposal-box {
+        background: #0f172a; border: 1px solid var(--border-dark); border-radius: 4px;
+        padding: 6px 10px; margin-bottom: 6px; font-size: 12px;
+        display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 6px;
+        color: #cbd5e1; line-height: 1.4;
+        transition: transform 0.2s, border-color 0.2s;
+    }
+    
+    /* Hide scrollbars from proposals cells - content fits naturally */
+    [id^="proposals-cell-"] {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* IE/Edge */
+    }
+    [id^="proposals-cell-"]::-webkit-scrollbar {
+        display: none; /* Chrome/Safari/Opera */
+    }
+    .existing-proposal-box:hover {
+        transform: translateX(5px);
+        border-color: var(--primary-accent);
+    }
+    .quote-icon { color: var(--primary-accent); margin-right: 8px; opacity: 0.6; font-size: 11px; }
+    .user-badge { background: #334155; color: #94a3b8; font-size: 10px; padding: 1px 6px; border-radius: 3px; text-transform: lowercase; margin-right: 6px; }
+
+    /* NEUES INPUT DESIGN (Status-Feedback) */
+    .custom-input-group {
+        display: flex; align-items: center;
+        background: #0f172a; 
+        border: 1px solid var(--border-dark);
+        border-radius: 6px; 
+        margin-bottom: 5px;
+        transition: all 0.3s ease;
+        position: relative; 
+    }
+    
+    /* STATUS: SPEICHERT (Gelb) */
+    .custom-input-group.saving {
+        border-color: #f59e0b; /* Warning */
+        box-shadow: 0 0 8px rgba(245, 158, 11, 0.2);
+    }
+
+    /* STATUS: GESPEICHERT (Grün) */
+    .custom-input-group.saved {
+        border-color: #10b981; /* Success */
+        box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+    }
+
+    /* STATUS: FEHLER (Rot) */
+    .custom-input-group.error {
+        border-color: var(--danger);
+        box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
+    }
+    .field-error-message {
+        color: #fecaca; /* light red */
+        font-size: 11px;
+        margin-top: 6px;
+        padding-left: 6px;
+    }
+    
+    .custom-input { 
+        flex: 1;
+        background: transparent; border: none; 
+        color: var(--text-light); 
+        padding: 8px 12px;
+        outline: none; font-size: 13px; 
+        border-top-left-radius: 6px;
+        border-bottom-left-radius: 6px;
+    }
+    .custom-input::placeholder { color: #475569; font-style: italic; }
+    
+    /* Rechter Button (Pfeil / Status Icon) */
+    .input-status-icon {
+        background: transparent; border: none;
+        padding: 0 12px;
+        display: flex; align-items: center; justify-content: center; height: 100%;
+        font-size: 12px;
+        color: #475569;
+        cursor: pointer;
+        width: 40px; 
+        border-top-right-radius: 6px;
+        border-bottom-right-radius: 6px;
+        transition: color 0.2s;
+    }
+    .input-status-icon:hover { color: var(--text-light); }
+    
+    /* --- DATE INPUT STYLES --- */
+    input[type="date"] {
+        cursor: pointer;
+        position: relative;
+    }
+    
+    /* Kalendersymbol heller und besser sichtbar machen */
+    input[type="date"]::-webkit-calendar-picker-indicator {
+        cursor: pointer;
+        filter: invert(0.8) brightness(1.5);
+        opacity: 1;
+        width: 20px;
+        height: 20px;
+    }
+    
+    input[type="date"]::-webkit-calendar-picker-indicator:hover {
+        filter: invert(1) brightness(2);
+        opacity: 1;
+    }
+    
+    /* Firefox */
+    input[type="date"]::-moz-calendar-picker-indicator {
+        cursor: pointer;
+        filter: invert(0.8) brightness(1.5);
+        opacity: 1;
+    }
+    
+    /* Farben für Icons im Status-Modus */
+    .custom-input-group.saving .input-status-icon { color: #f59e0b; cursor: wait; }
+    .custom-input-group.saved .input-status-icon { color: #10b981; cursor: default; }
+
+    .add-line-btn { color: var(--primary-accent); font-weight: 700; font-size: 11px; background: transparent; border: none; cursor: pointer; padding: 4px 0; display: inline-flex; align-items: center; gap: 4px; opacity: 0.8; }
+    .add-line-btn:hover { opacity: 1; text-decoration: underline; }
+
+    /* Dropdown Menü Styles */
+    .dropdown-menu {
+        max-height: 300px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    
+    .dropdown-menu::-webkit-scrollbar { width: 6px; }
+    .dropdown-menu::-webkit-scrollbar-track { background: #1e293b; }
+    .dropdown-menu::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+    .dropdown-menu::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+    /* Admin & Utils */
+    .alert-readable { background: rgba(239, 68, 68, 0.15) !important; border: 1px solid #ef4444 !important; color: #fca5a5 !important; }
+    .hidden { display: none !important; }
+    .text-muted { color: var(--text-soft) !important; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    div:where(.swal2-container) div:where(.swal2-popup) { border: 1px solid var(--border-dark); background: #1e293b; color: #f1f5f9; }
+</style>
+  </head>
+  <body>
+    
+    <div class="app-main">
+      <div class="app-title">
+        <h1 style="margin:0; font-size:1.25rem;">Zeugnisbemerkungen FSR - Version 3.2</h1>
+      </div>
+
+      <div class="d-flex justify-content-center mb-4">
+        <div class="nav nav-pills">
+          <a href="#" id="nav-teacher" class="nav-link active" onclick="switchView('teacher'); return false;">
+            <i class="fa-solid fa-chalkboard-user me-2"></i> Lehrer-Bereich
+          </a>
+          <a href="#" id="nav-admin" class="nav-link" onclick="switchView('admin'); return false;">
+            <i class="fa-solid fa-screwdriver-wrench me-2"></i> Admin-Bereich
+          </a>
+        </div>
+      </div>
+
+      <main id="app-content" style="min-height: 50vh;">
+        <div class="text-center py-5">
+          <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+          <p class="mt-3 text-muted">Programm wird gestartet...</p>
+        </div>
+      </main>
+      
+      <footer class="mt-5 pt-4 border-top border-secondary text-center text-muted small">
+        &copy; 2025 FSR-Cockpit | Secure Educational Environment
+      </footer>
+    </div>
+
+    <!-- Admin Login Modal (Bootstrap - KEIN SweetAlert!) -->
+    <div class="modal fade" id="adminLoginModal" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background:#1e293b; border:1px solid #334155;">
+          <div class="modal-header border-bottom border-secondary">
+            <h5 class="modal-title text-light">Admin Zugang</h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="adminModalCloseBtn"></button>
+          </div>
+          <div class="modal-body">
+            <input type="password" id="adminPasswordInput" class="form-control bg-dark text-light border-secondary" placeholder="Passwort" autocomplete="off" autocapitalize="off" autocorrect="off">
+            <div id="adminPasswordError" class="text-danger small mt-2" style="display:none;"></div>
+          </div>
+          <div class="modal-footer border-top border-secondary">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            <button type="button" class="btn btn-primary" id="adminLoginBtn">Anmelden</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11" defer></script>
+    
+    <script src="/firebase-api-shim.js"></script>
+<script>
+// ===============================================
+// MODUL: CORE (Navigation, Globals, Helpers)
+// ===============================================
+
+let globalData = {}; 
+let globalComments = [];
+let globalSearchDebounce = null;
+let globalSearchRequestId = 0;
+let classRequestToken = {};
+let pendingStudentFetch = {};
+
+// Weitere globale Variablen für Teacher-Modul
+var pendingStudentFocus = null;
+var pendingProposalSaves = {};
+var pendingDeletions = new Set();
+var STUDENT_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjEuNSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTYgMjF2LTJhNCA0IDAgMCAxIDQtNGg0YTQgNCAwIDAgMSA0IDR2MiIvPjwvc3ZnPg==';
+var loadedPhotos = new Map();
+
+// *** PRELOAD: Admin-Daten beim App-Start cachen (vor dem Login!) ***
+// Wird sofort aufgerufen - asynchron, blockiert nicht!
+runServer('getAdminInitData', null).catch(err => {
+  console.log('Admin preload nicht kritisch:', err);
+});
+
+// Hilfsfunktion: Text sicher für HTML konvertieren
+function escapeHtml(input) {
+  if (input === null || input === undefined) return '';
+  return String(input)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// --- INITIALISIERUNG ---
+document.addEventListener('DOMContentLoaded', function() {
+  console.log("App gestartet");
+  // Standard-View laden
+  switchView('teacher');
+  // Kommentare werden erst geladen, wenn sie benötigt werden (lazy loading)
+});
+
+function loadCommentsDict() {
+  // Nur laden, wenn noch nicht geladen
+  if (globalComments && globalComments.length > 0) return;
+  google.script.run.withSuccessHandler(d => globalComments = d).getAvailableComments();
+}
+
+// --- HELPER: MODERN MESSAGE MODAL ---
+function showMessage(title, text, type = 'success') {
+  Swal.fire({
+    title: title, html: text, icon: type,
+    background: '#1e293b', color: '#f1f5f9', confirmButtonColor: '#06b6d4', heightAuto: false 
+  });
+}
+
+// --- STATUS BAR (Unten rechts) ---
+function showStatus(state, msg) {
+    const bar = document.getElementById('status-bar');
+    const dot = document.getElementById('status-dot');
+    const txt = document.getElementById('status-text');
+    
+    if(!bar) return; // Falls View gewechselt wurde
+    
+    bar.classList.add('visible');
+    dot.className = 'status-dot ' + state;
+    txt.innerText = msg;
+    
+    if (state === 'saved') {
+        setTimeout(() => { 
+            if(bar) bar.classList.remove('visible'); 
+        }, 2000);
+    }
+}
+
+// --- NAVIGATION & AUTH CHECK ---
+async function switchView(view) {
+  // Aktiven Tab setzen
+  document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+  
+  if (view === 'admin') {
+    // Bootstrap Modal verwenden - KEIN SweetAlert mehr!
+    const modal = new bootstrap.Modal(document.getElementById('adminLoginModal'));
+    const passwordInput = document.getElementById('adminPasswordInput');
+    const loginBtn = document.getElementById('adminLoginBtn');
+    const errorDiv = document.getElementById('adminPasswordError');
+    const closeBtn = document.getElementById('adminModalCloseBtn');
+    
+    // Reset
+    passwordInput.value = '';
+    errorDiv.style.display = 'none';
+    loginBtn.disabled = false;
+    
+    // Modal öffnen
+    modal.show();
+    
+    // Focus auf Passwort-Feld
+    setTimeout(() => passwordInput.focus(), 300);
+    
+    // Enter-Taste im Passwort-Feld
+    const enterHandler = (e) => {
+      if (e.key === 'Enter') loginBtn.click();
+    };
+    passwordInput.addEventListener('keypress', enterHandler);
+    
+    // Login-Button Click
+    const loginHandler = async () => {
+      const password = passwordInput.value;
+      
+      if (!password) {
+        errorDiv.textContent = 'Bitte Passwort eingeben';
+        errorDiv.style.display = 'block';
+        return;
+      }
+      
+      // Button deaktivieren während Prüfung
+      loginBtn.disabled = true;
+      loginBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Prüfe...';
+      
+      try {
+        const isValid = await runServer('verifyAdminPassword', password);
+        
+        if (isValid) {
+          // SOFORT Modal schließen und UI anzeigen (kein Warten auf Server-Calls!)
+          modal.hide();
+          document.getElementById('nav-admin').classList.add('active');
+          
+          // Admin-View sofort mit Lade-Spinner anzeigen (nicht blockierend!)
+          const appContent = document.getElementById('app-content');
+          appContent.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div><p class="mt-3 text-muted">Lade Admin-Bereich...</p></div>';
+          
+          // Echtes Admin-Interface asynchron im Hintergrund laden
+          setTimeout(() => renderAdminView(appContent), 10);
+          
+        } else {
+          // Fehler anzeigen
+          errorDiv.textContent = 'Falsches Passwort!';
+          errorDiv.style.display = 'block';
+          loginBtn.disabled = false;
+          loginBtn.textContent = 'Anmelden';
+          passwordInput.select();
+        }
+      } catch (error) {
+        errorDiv.textContent = 'Fehler: ' + error;
+        errorDiv.style.display = 'block';
+        loginBtn.disabled = false;
+        loginBtn.textContent = 'Anmelden';
+      }
+    };
+    
+    loginBtn.addEventListener('click', loginHandler, { once: true });
+    
+    // Cleanup wenn Modal geschlossen wird
+    document.getElementById('adminLoginModal').addEventListener('hidden.bs.modal', () => {
+      passwordInput.removeEventListener('keypress', enterHandler);
+      // Wenn Modal ohne Erfolg geschlossen -> zurück zu Lehrer
+      if (!document.getElementById('nav-admin').classList.contains('active')) {
+        document.getElementById('nav-teacher').classList.add('active');
+      }
+    }, { once: true });
+    
+    return; // Wichtig: Nicht weiter ausführen
+    
+  } else if (view === 'teacher') {
+    // Lehrer Bereich (Kein Passwort)
+    document.getElementById('nav-teacher').classList.add('active');
+    renderTeacherView(document.getElementById('app-content'));
+  }
+}
+
+// Hilfsfunktion für Promises (Server Calls)
+function runServer(funcName, data) {
+    return new Promise((resolve, reject) => {
+        google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            [funcName](data);
+    });
+}
+
+
+// --- ADMIN: INDEX NEU AUFBAUEN ---
+function rebuildIndexes() {
+  Swal.fire({
+    title: 'Index neu aufbauen?',
+    text: 'Das kann einige Sekunden dauern. Fortfahren?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonText: 'Ja, starten',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9',
+    confirmButtonColor: '#06b6d4',
+    heightAuto: false
+  }).then((result) => {
+    if (result.isConfirmed) {
+      google.script.run.withSuccessHandler(function(res) {
+        showMessage('Index neu aufgebaut', '<pre>' + JSON.stringify(res, null, 2) + '</pre>', 'success');
+      }).rebuildIndexes();
+    }
+  });
+}
+</script>
+    <script>
+// ProposalsCore: minimal shared core for proposals persistence and merges
+const ProposalsCore = (function(){
+  function safeParse(raw, fallback){ try{ return raw ? JSON.parse(raw) : fallback; }catch(e){ return fallback; } }
+
+  function getProposals(className, studentId){
+    try{
+      if(!className || !studentId) return [];
+      const list = (globalData && globalData.studentsByClass && globalData.studentsByClass[className]) ? globalData.studentsByClass[className] : [];
+      const stu = list.find(s=>String(s.id)===String(studentId));
+      return (stu && Array.isArray(stu.proposals)) ? stu.proposals.slice() : [];
+    }catch(e){ return []; }
+  }
+
+  function removeMatchingOptimistic(className, studentId, serverProposals){
+    try{ if(typeof window.ProposalsModule !== 'undefined' && typeof ProposalsModule.removeMatchingOptimistic === 'function') return ProposalsModule.removeMatchingOptimistic(className, studentId, serverProposals); }catch(e){ console.error('[PC] removeMatchingOptimistic failed', e); }
+  }
+
+  function persistCache(currentClass){
+    try{
+      if(!currentClass) return;
+      const cacheKey = `class_cache_${encodeURIComponent(currentClass)}`;
+      let parsed = null;
+      try{ const cached = localStorage.getItem(cacheKey); parsed = cached ? JSON.parse(cached) : { className: currentClass, classVersion: null, students: [], phase: globalData.phase || '', phaseDescription: globalData.phaseDescription || '' }; }catch(e){ parsed = { className: currentClass, classVersion: null, students: [], phase: globalData.phase || '', phaseDescription: globalData.phaseDescription || '' }; }
+      const studentsForCache = (globalData && globalData.studentsByClass && globalData.studentsByClass[currentClass]) ? globalData.studentsByClass[currentClass] : [];
+      const mergedForCache = (typeof window.ProposalsModule === 'object' && typeof window.ProposalsModule.mergeOptimisticStudents === 'function') ? window.ProposalsModule.mergeOptimisticStudents(currentClass, studentsForCache) : studentsForCache;
+      parsed.students = mergedForCache;
+      parsed.className = currentClass;
+      parsed.phase = globalData && globalData.phase ? globalData.phase : parsed.phase;
+      parsed.phaseDescription = globalData && globalData.phaseDescription ? globalData.phaseDescription : parsed.phaseDescription;
+      localStorage.setItem(cacheKey, JSON.stringify(parsed));
+    }catch(e){ console.error('[PC] persistCache failed', e); }
+  }
+
+  function confirmServerMap(map){
+    try{
+      if(!map || typeof map !== 'object') return;
+      Object.keys(map).forEach(sid=>{
+        try{
+          const props = map[sid] || [];
+          const cls = (globalData && globalData.studentsByClass) ? (Object.keys(globalData.studentsByClass).find(c=> (globalData.studentsByClass[c]||[]).find(s=>String(s.id)===String(sid))) || null) : null;
+          if(cls && globalData && globalData.studentsByClass && globalData.studentsByClass[cls]){
+            const stu = globalData.studentsByClass[cls].find(s=>String(s.id)===String(sid));
+            if(stu){
+              const existing = Array.isArray(stu.proposals) ? stu.proposals : [];
+              const existingIds = new Set(existing.map(p=>String(p.id)));
+              props.forEach(newProp=>{ if(!existingIds.has(String(newProp.id))){ existing.push(newProp); } });
+              stu.proposals = existing;
+            }
+          }
+        }catch(e){}
+      });
+    }catch(e){ console.error('[PC] confirmServerMap failed', e); }
+  }
+
+  function getState(){ try{ return { studentsByClass: (globalData && globalData.studentsByClass) ? globalData.studentsByClass : {} }; }catch(e){ return { studentsByClass: {} }; } }
+
+  return {
+    getProposals,
+    removeMatchingOptimistic,
+    persistCache,
+    confirmServerMap,
+    getState
+  };
+})();
+
+try{ window.ProposalsCore = ProposalsCore; console.debug('[PC] ProposalsCore exposed on window'); }catch(e){}
+</script>
+<script>
+// ProposalsCore: zentrale Proposal-Stateverwaltung
+// - Single source of truth für Proposal-State (in-memory + localStorage)
+// - Saubere API: list, addOptimistic, confirmServerMap, deleteProposal, persist/load cache
+// - Events: subscribe(callback) -> callback(changeType, payload)
+
+(function(){
+  const CACHE_PREFIX = 'class_cache_';
+  const state = {
+    studentsByClass: {}, // { className: [{ id, vorname, proposals: [...] }, ...] }
+    optimistic: {}, // { className: { studentId: [proposal, ...] } }
+    subscribers: new Set(),
+  };
+
+  function notify(type, payload){
+    state.subscribers.forEach(cb=>{ try{ cb(type, payload); }catch(e){ console.error('subscriber error', e); } });
+  }
+
+  function loadCache(className){
+    try{
+      const key = CACHE_PREFIX + encodeURIComponent(className);
+      const raw = localStorage.getItem(key);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed;
+    }catch(e){ return null; }
+  }
+
+  function persistCache(className){
+    try{
+      const key = CACHE_PREFIX + encodeURIComponent(className);
+      const students = (state.studentsByClass[className] || []).map(s=>({ ...s, proposals: Array.isArray(s.proposals)? s.proposals : [] }));
+      const toStore = { className: className, classVersion: null, students: students, phase: (window.globalData && globalData.phase) || '' };
+      localStorage.setItem(key, JSON.stringify(toStore));
+      return true;
+    }catch(e){ console.error('[ProposalsCore] persistCache failed', e); return false; }
+  }
+
+  function setStudentsForClass(className, students){
+    state.studentsByClass[className] = (students||[]).map(s=>({ ...(s||{}), proposals: Array.isArray(s.proposals)? s.proposals.slice(): [] }));
+    notify('studentsUpdated', { className });
+  }
+
+  function mergeServerMap(map){
+    // map: { studentId: [proposal] }
+    Object.keys(map||{}).forEach(sid=>{
+      const serverProps = Array.isArray(map[sid])? map[sid].slice() : [];
+      // Find class for this student
+      const cls = findClassForStudent(sid);
+      if(!cls) return; // unknown student in our view
+      const students = state.studentsByClass[cls] || [];
+      const stu = students.find(s=>String(s.id) === String(sid));
+      if(!stu) return;
+      const existing = Array.isArray(stu.proposals)? stu.proposals.slice() : [];
+      const existingIds = new Set(existing.map(p=>String(p.id)));
+      serverProps.forEach(p=>{ if(!existingIds.has(String(p.id))){ existing.push(p); } });
+      stu.proposals = existing;
+      // After merging remove matching optimistic entries
+      removeMatchingOptimistic(cls, sid, stu.proposals);
+      notify('studentProposalsUpdated', { className: cls, studentId: sid });
+    });
+  }
+
+  function findClassForStudent(studentId){
+    const classes = Object.keys(state.studentsByClass||{});
+    for(let i=0;i<classes.length;i++){
+      const cls = classes[i];
+      const list = state.studentsByClass[cls]||[];
+      if(list.find(s=>String(s.id) === String(studentId))) return cls;
+    }
+    return null;
+  }
+
+  function getProposals(className, studentId){
+    const students = state.studentsByClass[className] || [];
+    const stu = students.find(s=>String(s.id) === String(studentId));
+    const serverList = stu && Array.isArray(stu.proposals) ? stu.proposals.slice() : [];
+    const optimistic = (state.optimistic[className] && state.optimistic[className][studentId]) || [];
+    const normalized = new Set((serverList||[]).map(p=>String((p.text||'').trim().toLowerCase())));
+    const filteredOpt = (optimistic||[]).filter(o=> !normalized.has(String((o.text||'').trim().toLowerCase())));
+    return [].concat(serverList, filteredOpt);
+  }
+
+  function addOptimistic(className, studentId, proposal){
+    state.optimistic[className] = state.optimistic[className] || {};
+    state.optimistic[className][studentId] = state.optimistic[className][studentId] || [];
+    state.optimistic[className][studentId].push(proposal);
+    notify('optimisticAdded', { className, studentId, proposal });
+    persistCache(className);
+  }
+
+  function removeMatchingOptimistic(className, studentId, serverProposals){
+    if(!state.optimistic[className] || !state.optimistic[className][studentId]) return;
+    const serverMap = new Set((serverProposals||[]).map(p=>String((p.text||'').trim().toLowerCase()) + ':::' + String((p.creator||'').toLowerCase())));
+    const keep = [];
+    state.optimistic[className][studentId].forEach(opt=>{
+      const key = String((opt.text||'').trim().toLowerCase()) + ':::' + String((opt.creator||'').toLowerCase());
+      if(!(serverMap.has(key) && String(opt.id||'').startsWith('temp-'))){ keep.push(opt); }
+    });
+    state.optimistic[className][studentId] = keep;
+    if(state.optimistic[className][studentId].length===0) delete state.optimistic[className][studentId];
+    if(Object.keys(state.optimistic[className]||{}).length===0) delete state.optimistic[className];
+    notify('optimisticPruned', { className, studentId });
+    persistCache(className);
+  }
+
+  function confirmServerMap(map){
+    mergeServerMap(map);
+    // persist merged view
+    Object.keys(state.studentsByClass||{}).forEach(cls=> persistCache(cls));
+    notify('serverConfirmed', { map });
+  }
+
+  function deleteProposal(proposalId){
+    // delete both from optimistic and server lists in memory
+    // If proposalId starts with temp- -> just remove from optimistic
+    if(String(proposalId||'').startsWith('temp-')){
+      Object.keys(state.optimistic||{}).forEach(cls => {
+        Object.keys(state.optimistic[cls]||{}).forEach(sid => {
+          state.optimistic[cls][sid] = state.optimistic[cls][sid].filter(p=> String(p.id)!==String(proposalId));
+          if(state.optimistic[cls][sid].length===0) delete state.optimistic[cls][sid];
+        });
+        if(Object.keys(state.optimistic[cls]||{}).length===0) delete state.optimistic[cls];
+      });
+      notify('deleted', { proposalId });
+      return Promise.resolve({ success: true, local:true });
+    }
+
+    // Otherwise perform server-side delete (caller should call TeacherController.deleteProposal)
+    return new Promise((resolve, reject)=>{
+      try{
+        google.script.run.withSuccessHandler(function(newData){
+          // merge server response if provided
+          if(newData && newData.proposalsByStudent) confirmServerMap(newData.proposalsByStudent);
+          notify('deleted', { proposalId, server:true });
+          resolve(newData || { success:true });
+        }).withFailureHandler(function(err){
+          console.error('[ProposalsCore] deleteProposal server error', err);
+          reject(err);
+        }).deleteProposal(proposalId);
+      }catch(e){ reject(e); }
+    });
+  }
+
+  function subscribe(cb){ state.subscribers.add(cb); return ()=> state.subscribers.delete(cb); }
+  function getState(){ return state; }
+
+  // Expose API
+  window.ProposalsCore = {
+    loadCache,
+    persistCache,
+    setStudentsForClass,
+    getProposals,
+    addOptimistic,
+    removeMatchingOptimistic,
+    confirmServerMap,
+    deleteProposal,
+    subscribe,
+    getState
+  };
+
+  console.debug('[ProposalsCore] initialized');
+})();
+</script>
+
+    <script>
+// ProposalsModule: isolated proposal handling (optimistic UI, retries, rendering helpers)
+const ProposalsModule = (function(){
+  const optimisticProposals = {};
+  const optimisticIndex = {};
+  const pendingSaveTimeouts = {};
+  const pendingRemovalTimers = {};
+
+  // Lightweight instrumentation helper
+  function instr(tag, data) {
+    try { console.debug(`[PM][INSTR][${new Date().toISOString()}] ${tag}`, data); } catch(e) {}
+  }
+
+  function normalize(t){ return String(t||'').replace(/\s+/g,' ').trim().toLowerCase(); }
+  function creatorKey(c){ return String(c||'').split('@')[0].toLowerCase().trim(); }
+
+  function addOptimisticProposal(className, studentId, proposal){
+    if(!className || !studentId) return;
+    optimisticProposals[className] = optimisticProposals[className] || {};
+    optimisticProposals[className][studentId] = optimisticProposals[className][studentId] || [];
+    optimisticProposals[className][studentId].push(proposal);
+    console.debug('[PM] addOptimistic', {className, studentId, id: proposal.id});
+  }
+
+  function clearPendingTimeout(tempId){ try{ if(!tempId) return; const t = pendingSaveTimeouts[tempId]; if(t) clearTimeout(t); delete pendingSaveTimeouts[tempId]; } catch(e){} }
+
+  function markProposalFailed(tempId){
+    const entry = optimisticIndex[tempId]; if(!entry) return; const { className, studentId } = entry;
+    const arr = optimisticProposals[className] && optimisticProposals[className][studentId]; if(!arr) return;
+    const p = arr.find(x=>x.id===tempId);
+    if(p){ p._failed = true; const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell){
+      const serverStudent = (globalData && globalData.studentsByClass && globalData.studentsByClass[className]) ? globalData.studentsByClass[className].find(s=>s.id==studentId) : { proposals: [] };
+      cell.innerHTML = ProposalsModule.getProposalListHtml(serverStudent || { proposals: [] , id: studentId, klasse: className});
+    }}
+  }
+
+  function retryTempProposal(tempId){
+    const entry = optimisticIndex[tempId]; if(!entry) return;
+    const { className, studentId, text } = entry;
+    const arr = optimisticProposals[className] && optimisticProposals[className][studentId]; if(!arr) return;
+    const idx = arr.findIndex(x=>x.id===tempId); if(idx===-1) return; const old = arr[idx]; arr.splice(idx,1); clearPendingTimeout(tempId); delete optimisticIndex[tempId];
+    const newTempId = 'temp-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    const newOpt = { id:newTempId, text:text, creator: old.creator || globalData.userEmail || 'ich', canDelete:true, _temp:true };
+    arr.push(newOpt); optimisticIndex[newTempId] = { className, studentId, text, creator: newOpt.creator };
+    // Increase timeout to allow slower backend responses (20s)
+    pendingSaveTimeouts[newTempId] = setTimeout(()=>markProposalFailed(newTempId), 20000);
+
+    google.script.run.withSuccessHandler(res=>{ if(res && res.studentsByClass) { if(typeof applyServerData === 'function') applyServerData(res); } if(className && studentId) ProposalsModule.removeMatchingOptimistic(className, studentId, (globalData.studentsByClass && globalData.studentsByClass[className] && globalData.studentsByClass[className].find(s=>s.id==studentId)?.proposals) || []); })
+      .withFailureHandler(()=>{})
+      .saveBulkProposals([{ studentId: studentId, text: text, className: className, clientKey: newTempId }]);
+  }
+
+  function removeMatchingOptimistic(className, studentId, serverProposals){
+    if(!className || !studentId || !optimisticProposals[className] || !optimisticProposals[className][studentId]) return;
+    const serverList = Array.isArray(serverProposals) ? serverProposals : [];
+    instr('removeMatchingOptimistic START', { className, studentId, optimisticCount: (optimisticProposals[className] && optimisticProposals[className][studentId])? optimisticProposals[className][studentId].length:0, serverCount: serverList.length });
+    // Map: key = normalized text+creator, value = echte Server-ID
+    const serverMap = new Map();
+    serverList.forEach(p => {
+      // WICHTIG: Ignoriere Proposals mit temp-IDs in der Datenbank (alte fehlerhafte Einträge)
+      if(String(p.id || '').startsWith('temp-')) {
+        console.debug('[PM] Skipping server proposal with temp-ID:', p.id);
+        return;
+      }
+      const key = `${normalize(p.text)}:::${creatorKey(p.creator)}`;
+      serverMap.set(key, p.id);
+    });
+    instr('removeMatchingOptimistic serverMapBuilt', { serverCount: serverList.length, validServerCount: serverMap.size });
+
+    // Entferne alle temp-Proposals, die jetzt als echte Server-Proposals existieren
+    const remaining = [];
+    const removedTempIds = [];
+    // Build server text set as fallback
+    const serverTextSet = new Set(serverList.map(p => normalize(p.text)));
+
+    optimisticProposals[className][studentId].forEach(opt => {
+      const key = `${normalize(opt.text)}:::${creatorKey(opt.creator)}`;
+      const matchedServerId = serverMap.get(key);
+      const textMatch = serverTextSet.has(normalize(opt.text));
+
+      if ((matchedServerId && String(opt.id).startsWith('temp-')) || (textMatch && String(opt.id).startsWith('temp-'))) {
+        // Sofort entfernen, da jetzt persistent (either by creator+text match or text-only match)
+        clearPendingTimeout(opt.id);
+        delete optimisticIndex[opt.id];
+        if(pendingRemovalTimers[opt.id]) { clearTimeout(pendingRemovalTimers[opt.id]); delete pendingRemovalTimers[opt.id]; }
+        removedTempIds.push(opt.id);
+        instr('tempRemoved', { tempId: opt.id, serverId: matchedServerId || '(text-match)' });
+      } else {
+        // Timer ggf. abbrechen
+        if(opt.id && pendingRemovalTimers[opt.id]){ clearTimeout(pendingRemovalTimers[opt.id]); delete pendingRemovalTimers[opt.id]; }
+        remaining.push(opt);
+      }
+    });
+    optimisticProposals[className][studentId] = remaining;
+    if(optimisticProposals[className][studentId] && optimisticProposals[className][studentId].length===0) delete optimisticProposals[className][studentId];
+    if(Object.keys(optimisticProposals[className]||{}).length===0) delete optimisticProposals[className];
+    // Also remove these temp IDs from globalData student proposals if present
+    try {
+      if (removedTempIds.length > 0 && globalData && globalData.studentsByClass && globalData.studentsByClass[className]) {
+        const stud = globalData.studentsByClass[className].find(s => String(s.id) === String(studentId));
+        if (stud && Array.isArray(stud.proposals)) {
+          stud.proposals = stud.proposals.filter(p => !removedTempIds.includes(String(p.id)));
+        }
+      }
+    } catch (e) { console.error('Error removing temp IDs from globalData proposals:', e); }
+    instr('removeMatchingOptimistic END', { removedTempIds, remainingOptimistic: (optimisticProposals[className]&&optimisticProposals[className][studentId])? optimisticProposals[className][studentId].length:0 });
+    // Nach dem Entfernen sofort neu rendern
+    try {
+      const cell = document.getElementById(`proposals-cell-${studentId}`);
+      const updatedStudent = (globalData && globalData.studentsByClass && globalData.studentsByClass[className]) ? globalData.studentsByClass[className].find(s=>s.id==studentId) : null;
+      if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(updatedStudent||{proposals:[], id: studentId, klasse: className});
+    } catch(e){}
+  }
+
+  function mergeOptimisticStudents(className, students){
+    if(!className || !students || !optimisticProposals[className]) return students;
+    const overrides = optimisticProposals[className];
+    return students.map(s=>{
+      const extra = overrides[s.id]; if(!extra || extra.length===0) return s; 
+      const clone = {...s, proposals: Array.isArray(s.proposals)?[...s.proposals]:[]}; 
+      
+      // Build a map of server proposals by normalized text+creator
+      const serverMap = new Map();
+      clone.proposals.forEach(sp => {
+        const key = `${normalize(sp.text)}:::${creatorKey(sp.creator)}`;
+        serverMap.set(key, sp.id);
+      });
+      
+      // For each optimistic proposal:
+      // - If matching server proposal exists (same text+creator), REMOVE the optimistic (it's now on server)
+      // - If NO matching, ADD the optimistic (it's pending)
+      extra.forEach(opt=>{ 
+        const key = `${normalize(opt.text)}:::${creatorKey(opt.creator)}`;
+        const hasMatching = serverMap.has(key);
+        
+        if(!hasMatching) {
+          // No matching server proposal: add optimistic if not already present by ID
+          if(!clone.proposals.find(p=>p.id===opt.id)) {
+            clone.proposals.push(opt);
+          }
+        }
+        // If hasMatching: skip adding (server version already in proposals)
+      }); 
+      
+      return clone;
+    });
+  }
+
+  // Map für "gespeichert"-Badges: Vorschlag-ID => Timeout
+  const savedBadgeTimeouts = {};
+
+  function showSavedBadge(proposalId, studentId) {
+    const badgeId = `saved-badge-${proposalId}`;
+    const badge = document.getElementById(badgeId);
+    if (badge) badge.style.display = '';
+    // Nach 2 Sekunden ausblenden
+    if (savedBadgeTimeouts[proposalId]) clearTimeout(savedBadgeTimeouts[proposalId]);
+    savedBadgeTimeouts[proposalId] = setTimeout(() => {
+      const badge = document.getElementById(badgeId);
+      if (badge) badge.style.display = 'none';
+      delete savedBadgeTimeouts[proposalId];
+    }, 2000);
+  }
+
+  function deleteProposalWithLog(proposalId, studentId, className) {
+    console.debug('[PM] Löschen angefordert für ID:', proposalId, 'studentId:', studentId, 'className:', className);
+    
+    // Show spinner on delete icon
+    const propRow = document.getElementById(`prop-row-${proposalId}`);
+    if(propRow) {
+      const deleteIcon = propRow.querySelector('.fa-trash-can');
+      if(deleteIcon) {
+        deleteIcon.className = 'fa-solid fa-spinner fa-spin text-danger ms-2';
+        deleteIcon.style.cursor = 'wait';
+        deleteIcon.onclick = null; // Prevent multiple clicks
+      }
+    }
+    
+    google.script.run.withSuccessHandler(function(result) {
+      console.debug('[PM] Löschen erfolgreich, result:', result);
+      if(!result || result.success === false) {
+        console.error('[PM] Löschen fehlgeschlagen:', result);
+        // Restore delete icon on error
+        if(propRow) {
+          const spinner = propRow.querySelector('.fa-spinner');
+          if(spinner) {
+            spinner.className = 'fa-solid fa-trash-can text-danger ms-2';
+            spinner.style.cursor = 'pointer';
+            spinner.onclick = function() { ProposalsModule.deleteProposalWithLog(proposalId, studentId, className); };
+          }
+        }
+        if(typeof showMessage==='function') showMessage('Fehler', result.error || 'Löschen fehlgeschlagen.','error');
+        return;
+      }
+      
+      // deleteProposalV2 returns: { success, proposalsByStudent, className, studentId }
+      // Update the student's proposals in globalData
+      if(result.proposalsByStudent && result.studentId && globalData && globalData.studentsByClass && globalData.studentsByClass[className]) {
+        const student = globalData.studentsByClass[className].find(s => s.id === result.studentId);
+        if(student) {
+          student.proposals = result.proposalsByStudent[result.studentId] || [];
+          console.debug('[PM] Updated student proposals after delete:', student.proposals);
+        }
+      }
+      
+      // Re-render the proposals cell (will remove the row with spinner)
+      const updatedStudent = globalData.studentsByClass[className].find(s=>s.id==studentId);
+      const cell = document.getElementById(`proposals-cell-${studentId}`);
+      if(updatedStudent && cell) { 
+        cell.innerHTML = ProposalsModule.getProposalListHtml(updatedStudent); 
+        console.debug('[PM] Re-rendered proposals cell after delete');
+        try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(className); }catch(e){} 
+      }
+    }).withFailureHandler(function(err){
+      console.error('[PM] Löschen fehlgeschlagen (network/server error):', err);
+      // Restore delete icon on network error
+      if(propRow) {
+        const spinner = propRow.querySelector('.fa-spinner');
+        if(spinner) {
+          spinner.className = 'fa-solid fa-trash-can text-danger ms-2';
+          spinner.style.cursor = 'pointer';
+          spinner.onclick = function() { ProposalsModule.deleteProposalWithLog(proposalId, studentId, className); };
+        }
+      }
+      if(typeof showMessage==='function') showMessage('Fehler','Löschen fehlgeschlagen: ' + err,'error');
+    }).deleteProposal(proposalId);
+  }
+
+  function getProposalListHtml(s){
+    if(!s) return '';
+    const className = s.klasse || s._className || '';
+    const studentId = s.id;
+    const serverList = Array.isArray(s.proposals) ? s.proposals : [];
+    const optimistic = (optimisticProposals[className] && optimisticProposals[className][studentId]) || [];
+
+    // Merge serverList + optimistic deterministically and dedupe by normalized text+creator
+    const combined = [];
+    const seen = new Set();
+    const keyOf = p => `${normalize(p.text)}:::${creatorKey(p.creator)}`;
+
+    // Add server proposals first (prefer server entries)
+    serverList.forEach(p => {
+      const k = keyOf(p);
+      if (!seen.has(k)) { combined.push(p); seen.add(k); }
+    });
+
+    // Then add optimistic proposals only if not already present
+    optimistic.forEach(p => {
+      const k = keyOf(p);
+      if (!seen.has(k)) { combined.push(p); seen.add(k); }
+    });
+
+    if (!combined || combined.length === 0) return '';
+    return combined.filter(p=>true).map(p=>{
+      const isTemp = Boolean(p._temp) || String(p.id||'').startsWith('temp-');
+      // Löschen-Icon nur für echte Vorschläge (keine temp-IDs)
+      const deleteBtn = (p.canDelete && !isTemp) ? `<i class="fa-solid fa-trash-can text-danger ms-2" style="cursor:pointer; opacity:0.7;" onclick="ProposalsModule.deleteProposalWithLog('${p.id}','${studentId}','${className}')" title="Löschen"></i>` : '';
+      const tempBadge = isTemp ? `<span class="badge bg-secondary ms-2" style="font-size:0.65rem;">wird gespeichert..</span>` : '';
+      const failedBadge = p._failed ? `<button class="btn btn-sm btn-outline-danger ms-2" onclick="ProposalsModule.retryTempProposal('${p.id}')">Speichern fehlgeschlagen – erneut</button>` : '';
+      // Gespeichert-Badge nur für echte Vorschläge, die gerade frisch gespeichert wurden
+      const savedBadge = (!isTemp && p._justSaved) ? `<span id="saved-badge-${p.id}" class="badge bg-success ms-2" style="font-size:0.65rem; display:none;">gespeichert</span>` : '';
+      return `\n       <div id="prop-row-${p.id}" class="existing-proposal-box fade-in-row">\n         <div style="flex:1;">\n           <i class="fa-solid fa-quote-left quote-icon"></i> ${escapeHtml(p.text||'')}\n         </div>\n         <div class="d-flex align-items-center flex-shrink-0 ms-2">\n           <span class="user-badge">${escapeHtml((p.creator||'').split('@')[0])}</span>\n           ${tempBadge}\n           ${failedBadge}\n           ${savedBadge}\n           ${deleteBtn}\n         </div>\n       </div>`;
+    }).join('');
+  }
+
+  function getVotingProposalsHtml(s) {
+    if (!s) return '';
+    const proposals = Array.isArray(s.proposals) ? s.proposals : [];
+    if (proposals.length === 0) return '<div class="text-muted">Keine Vorschläge vorhanden</div>';
+    
+    const myEmail = globalData.userEmail || '';
+    const myVotes = globalData.myVotes || {};
+    
+    return proposals.map(p => {
+      const myVote = myVotes[p.id] || p.myVote || 0;
+      const posCount = p.positiveCount || p.pos || 0;
+      const negCount = p.negativeCount || p.neg || 0;
+      const votersPos = Array.isArray(p.votersPos) ? p.votersPos : [];
+      const votersNeg = Array.isArray(p.votersNeg) ? p.votersNeg : [];
+      
+      const upActive = myVote === 1 ? 'btn-success' : 'btn-outline-secondary';
+      const downActive = myVote === -1 ? 'btn-danger' : 'btn-outline-secondary';
+      
+      const votersPosStr = votersPos.map(v => v.split('@')[0]).join(', ');
+      const votersNegStr = votersNeg.map(v => v.split('@')[0]).join(', ');
+      
+      return `
+        <div class="existing-proposal-box fade-in-row mb-2">
+          <div style="flex:1;">
+            <i class="fa-solid fa-quote-left quote-icon"></i> ${escapeHtml(p.text || '')}
+            <div class="mt-1">
+              <span class="user-badge">${escapeHtml((p.creator || '').split('@')[0])}</span>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0 ms-3">
+            <button class="btn btn-sm ${upActive}" onclick="castVoteUI('${p.id}', '${s.id}', 1)" title="Dafür: ${votersPosStr}">
+              <i class="fa-solid fa-thumbs-up"></i> ${posCount}
+            </button>
+            <button class="btn btn-sm ${downActive}" onclick="castVoteUI('${p.id}', '${s.id}', -1)" title="Dagegen: ${votersNegStr}">
+              <i class="fa-solid fa-thumbs-down"></i> ${negCount}
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function autoSaveProposal(inputElement){
+    // replicate lighter-weight save flow: validate, optimistic push, server call, timeouts
+    const text = (inputElement.value||'').trim(); if(!text) return; const validation = (typeof validateProposalText==='function')? validateProposalText(text) : { valid: true };
+    const classNameForLog = (document.getElementById('class-select')||{}).value || '';
+    console.debug('[PM] autoSaveProposal start', { className: classNameForLog, text });
+    if(!validation.valid){ if(typeof showFieldError==='function') showFieldError(inputElement, validation.message||'Invalid'); return; }
+    const studentId = inputElement.dataset.studentid; const tempId = 'temp-'+Date.now();
+    const selectEl = document.getElementById('class-select') || document.querySelector('select'); const currentClass = selectEl? selectEl.value : '';
+    const studentList = globalData.studentsByClass ? globalData.studentsByClass[currentClass] : null; const student = studentList ? studentList.find(s=>s.id==studentId) : null;
+    if(student){ if(!Array.isArray(student.proposals)) student.proposals = []; student.proposals.push({ id: tempId, text:text, creator: globalData.userEmail || 'ich', canDelete:true, _temp:true }); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); }
+    addOptimisticProposal(currentClass, studentId, { id: tempId, text:text, creator: globalData.userEmail || 'ich', canDelete:true, _temp:true });
+    optimisticIndex[tempId] = { className: currentClass, studentId, text, creator: globalData.userEmail || 'ich' };
+    // Increase timeout to allow slower backend responses (20s)
+    pendingSaveTimeouts[tempId] = setTimeout(()=>markProposalFailed(tempId), 20000);
+
+    const payload = [{ studentId: studentId, text: text, className: currentClass, clientKey: tempId }];
+    google.script.run.withSuccessHandler(newData=>{
+      console.debug('[PM][DEBUG] SuccessHandler called, newData:', newData, 'tempId:', tempId, 'currentClass:', currentClass);
+      // Normalize possible wrapper shape: some server calls return { newData: {...}, tempId:..., ... }
+      let resp = newData;
+      try { if (resp && resp.newData) resp = resp.newData; } catch (e) { /* ignore */ }
+      if(resp==null){ console.error('PM save returned null'); if(student){ student.proposals = (student.proposals||[]).filter(p=>p.id!==tempId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); } return; }
+      if(resp.success===false){ if(student){ student.proposals = (student.proposals||[]).filter(p=>p.id!==tempId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); } if(typeof showFieldError==='function') showFieldError(inputElement, (resp.errors && resp.errors[0] && resp.errors[0].reason) || resp.message || 'Server validation'); return; }
+
+      // Handle both formats: studentsByClass (legacy) or proposalsByStudent (V2)
+      const hasLegacyFormat = resp && resp.studentsByClass && resp.studentsByClass[currentClass];
+      const hasV2Format = resp && resp.proposalsByStudent && resp.proposalsByStudent[studentId];
+      
+      if(hasLegacyFormat || hasV2Format){
+        console.debug('[PM][DEBUG] Server response:', {newData, tempId, currentClass, studentId});
+        console.debug('[PM][DEBUG] Format detected:', hasLegacyFormat ? 'legacy' : 'V2');
+        
+        // SIMPLIFIED FIX: Call applyServerData ONCE with the correct format
+        if(typeof applyServerData==='function') {
+          if(hasLegacyFormat) {
+            // Use legacy format directly from server
+            applyServerData(newData);
+          } else if(hasV2Format) {
+            // Convert V2 format to legacy format
+            // Get existing students for this class or create minimal structure
+            const existingStudents = (globalData.studentsByClass && globalData.studentsByClass[currentClass]) || [];
+            const updatedStudents = existingStudents.map(s => {
+              if(String(s.id) === String(studentId)) {
+                // Update this student's proposals
+                return { ...s, proposals: newData.proposalsByStudent[studentId] || [] };
+              }
+              return s;
+            });
+            
+            // If student not found in existing, add them
+            if(!existingStudents.find(s => String(s.id) === String(studentId))) {
+              updatedStudents.push({
+                id: studentId,
+                proposals: newData.proposalsByStudent[studentId] || []
+              });
+            }
+            
+            const legacyFormat = {
+              studentsByClass: {
+                [currentClass]: updatedStudents
+              },
+              phase: newData.phase,
+              phaseDescription: newData.phaseDescription
+            };
+            applyServerData(legacyFormat);
+          }
+        }
+        
+        // NOTE: Do NOT remove the optimistic temp-entry yet — wait until we confirm
+        // that the server returned a persistent proposal matching this text/creator.
+        // We will remove the temp entry after attempting to reconcile below.
+        
+        // Remove any server-returned proposals that still have temp-IDs (artifacts)
+        try {
+          const classStudents = globalData.studentsByClass && globalData.studentsByClass[currentClass];
+          if (Array.isArray(classStudents)) {
+            classStudents.forEach(st => {
+              if (Array.isArray(st.proposals)) {
+                const before = st.proposals.length;
+                st.proposals = st.proposals.filter(p => !String(p.id || '').startsWith('temp-'));
+                if (st.proposals.length !== before) console.debug('[PM] Removed server-side temp proposals from class data for student', st.id);
+              }
+            });
+          }
+        } catch(e) { console.error('Error cleaning server temp proposals', e); }
+
+        // Get proposals for matching (from globalData after update)
+        const updatedStudent = globalData.studentsByClass && globalData.studentsByClass[currentClass] && globalData.studentsByClass[currentClass].find(s=>s.id==studentId);
+        const serverProps = (updatedStudent && Array.isArray(updatedStudent.proposals)) ? updatedStudent.proposals : [];
+          
+        console.debug('[PM][DEBUG] Vorschläge nach Server-Update:', {studentId, serverProps});
+        // Deterministic reconciliation: if server returned a clientKeyMap, replace temp-ID with server-ID
+        try {
+          // clientKeyMap may live on the top-level resp or be wrapped; check both
+          const clientKeyMap = (newData && (newData.clientKeyMap || (newData.newData && newData.newData.clientKeyMap))) || (resp && resp.clientKeyMap) || {};
+          if (clientKeyMap && clientKeyMap[tempId]) {
+            const serverIdForTemp = clientKeyMap[tempId];
+            // Clear pending timeouts and indexes for temp
+            try { clearPendingTimeout(tempId); } catch (e) {}
+            try { delete optimisticIndex[tempId]; } catch (e) {}
+            try {
+              if (optimisticProposals[currentClass] && optimisticProposals[currentClass][studentId]) {
+                optimisticProposals[currentClass][studentId] = optimisticProposals[currentClass][studentId].filter(o => String(o.id) !== String(tempId));
+                if (optimisticProposals[currentClass][studentId].length === 0) delete optimisticProposals[currentClass][studentId];
+                if (Object.keys(optimisticProposals[currentClass]||{}).length===0) delete optimisticProposals[currentClass];
+              }
+            } catch(e){}
+
+            // Replace temp ID in globalData if present and mark server entry as justSaved
+            try {
+              const stud = globalData.studentsByClass && globalData.studentsByClass[currentClass] && globalData.studentsByClass[currentClass].find(s => String(s.id) === String(studentId));
+              if (stud && Array.isArray(stud.proposals)) {
+                stud.proposals.forEach(p=>{
+                  if (String(p.id) === String(tempId)) {
+                    p.id = serverIdForTemp;
+                    p._temp = false;
+                    p._justSaved = true;
+                  }
+                });
+              }
+              // Ensure serverProps includes the server entry
+              if (serverProps && !serverProps.find(p=>String(p.id)===String(serverIdForTemp))) {
+                serverProps.push({ id: serverIdForTemp, text: text, creator: globalData.userEmail || '', _justSaved: true });
+              }
+            } catch(e) { console.error('Error applying clientKeyMap reconciliation', e); }
+          }
+        } catch(e) { console.error('ClientKey reconciliation error', e); }
+
+        // Finde den Vorschlag mit gleichem Text und Creator, aber echter ID (robuster Abgleich)
+        const tempText = normalize(text);
+        const tempCreator = String((globalData.userEmail || 'ich')).toLowerCase();
+        let justSavedId = null;
+        serverProps.forEach(p => {
+          if(normalize(p.text) === tempText && String(p.creator||'').toLowerCase() === tempCreator) {
+            p._justSaved = true;
+            justSavedId = p.id;
+          }
+        });
+        if(!justSavedId) {
+          console.warn('[PM][DEBUG] Kein justSavedId gefunden!', {tempText, tempCreator, serverProps});
+        }
+        console.debug('[PM][DEBUG] Calling removeMatchingOptimistic with:', {currentClass, studentId, serverPropsCount: serverProps.length});
+        ProposalsModule.removeMatchingOptimistic(currentClass, studentId, serverProps);
+        
+        const cell = document.getElementById(`proposals-cell-${studentId}`);
+        const finalStudent = globalData.studentsByClass && globalData.studentsByClass[currentClass] && globalData.studentsByClass[currentClass].find(s=>s.id==studentId);
+          // Merge server + optimistic proposals with de-duplication:
+          instr('merge START', { className: currentClass, studentId, serverCount: (finalStudent && Array.isArray(finalStudent.proposals))? finalStudent.proposals.length:0, optimisticCount: ((optimisticProposals[currentClass] && optimisticProposals[currentClass][studentId])||[]).length });
+          // - Prefer server (non-temp) proposals
+          // - Append optimistic (temp) proposals only if no server equivalent (by normalized text+creator)
+          try {
+            const merged = [];
+            const seen = new Set();
+            const keyOf = p => `${normalize(p.text)}:::${creatorKey(p.creator)}`;
+
+            // Add server proposals first (exclude any temp-IDs that slipped through)
+            if (finalStudent && Array.isArray(finalStudent.proposals)) {
+              finalStudent.proposals.forEach(p => {
+                if (String(p.id || '').startsWith('temp-')) return; // skip any temp artifacts
+                const k = keyOf(p);
+                if (!seen.has(k)) { merged.push(p); seen.add(k); }
+              });
+            }
+
+            // Then add optimistic proposals if they don't duplicate server entries
+            const remainingOptimistic = (optimisticProposals[currentClass] && optimisticProposals[currentClass][studentId]) || [];
+            remainingOptimistic.forEach(opt => {
+              const k = keyOf(opt);
+              if (!seen.has(k)) { merged.push(opt); seen.add(k); }
+            });
+
+            // Replace finalStudent proposals with merged, deduped list
+            if (finalStudent) finalStudent.proposals = merged;
+          } catch (e) { console.error('Error merging/deduping proposals before render:', e); }
+          instr('merge END', { mergedCount: (finalStudent && Array.isArray(finalStudent.proposals))? finalStudent.proposals.length:0 });
+        if(finalStudent && cell) {
+          // Use requestAnimationFrame to avoid render flicker when scrolling
+          requestAnimationFrame(() => {
+            cell.innerHTML = ProposalsModule.getProposalListHtml(finalStudent);
+          });
+          // Zeige das "gespeichert"-Badge für 2 Sekunden
+          if(justSavedId) showSavedBadge(justSavedId, studentId);
+          try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(currentClass); }catch(e){}
+        }
+        // Entferne das Flag nach dem Rendern, damit es beim nächsten Rendern nicht mehr erscheint
+        if(justSavedId) {
+          setTimeout(()=>{
+            const student = globalData.studentsByClass[currentClass].find(s=>s.id==studentId);
+            if(student && Array.isArray(student.proposals)) {
+              student.proposals.forEach(p=>{ if(p.id===justSavedId) delete p._justSaved; });
+            }
+          }, 2100);
+        }
+      }
+      else if(currentClass){ const token = Date.now(); pendingStudentFetch[currentClass] = token; google.script.run.withSuccessHandler(data=>{ if(pendingStudentFetch[currentClass]!==token) return; if(!data || data.success===false) return; if(typeof applyServerData==='function') applyServerData({ phase: data.phase, phaseDescription: data.phaseDescription, studentsByClass: { [currentClass]: (data.studentsByClass && data.studentsByClass[currentClass]) || [] } }); const updatedStudent = globalData.studentsByClass[currentClass].find(s=>s.id==studentId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(updatedStudent && cell){ ProposalsModule.removeMatchingOptimistic(currentClass, studentId, updatedStudent.proposals || []); cell.innerHTML = ProposalsModule.getProposalListHtml(updatedStudent); try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(currentClass); }catch(e){} } }).withFailureHandler(()=>{}).getStudentsForClass(currentClass); }
+    }).withFailureHandler(err=>{ console.error('PM save failed', err); if(student){ student.proposals = (student.proposals||[]).filter(p=>p.id!==tempId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); } if(typeof showMessage==='function') showMessage('Fehler','Speichern fehlgeschlagen.','error'); }).saveBulkProposals(payload);
+  }
+
+  // ProposalsCore is provided by js-proposals-core.html include
+  return {
+    addOptimisticProposal,
+    removeMatchingOptimistic,
+    mergeOptimisticStudents,
+    getProposalListHtml,
+    getVotingProposalsHtml,
+    autoSaveProposal,
+    retryTempProposal,
+    markProposalFailed,
+    clearPendingTimeout,
+    deleteProposalWithLog
+  };
+})();
+
+// Expose to window so `js-teacher.html` delegation via window.ProposalsModule works
+try { window.ProposalsModule = ProposalsModule; console.debug('[PM] initialized and exposed on window'); } catch(e) { console.debug('[PM] initialized (no window exposure)', e); }
+</script>
+    <script>
+// ===============================================
+// MODUL: TEACHER (Version: Instant Feedback / No Waiting)
+// ===============================================
+
+// Hinweis: Globale Variablen werden in js-core.html deklariert
+// Hier nur sicherstellen, dass sie existieren
+if (typeof pendingStudentFocus === 'undefined') window.pendingStudentFocus = null;
+if (typeof pendingProposalSaves === 'undefined') window.pendingProposalSaves = {};
+if (typeof pendingDeletions === 'undefined') window.pendingDeletions = new Set();
+if (typeof currentRenderWindow === 'undefined') window.currentRenderWindow = null; // Global reference to renderWindow
+
+function addOptimisticProposal(className, studentId, proposal) {
+  if (window.ProposalsModule && ProposalsModule.addOptimisticProposal) return ProposalsModule.addOptimisticProposal(className, studentId, proposal);
+}
+
+function removeMatchingOptimistic(className, studentId, serverProposals) {
+  if (window.ProposalsModule && ProposalsModule.removeMatchingOptimistic) return ProposalsModule.removeMatchingOptimistic(className, studentId, serverProposals);
+}
+
+function clearPendingTimeout(tempId) {
+  try {
+    // Silent operation: no pending-timeout management in ProposalsModule anymore
+    return;
+  } catch (e) { /* ignore */ }
+}
+
+function markProposalFailed(tempId) {
+  // No-op: failure flags are not used in silent mode
+  return;
+}
+
+function retryTempProposal(tempId) {
+  // No-op: retry flow removed for silent autosave
+  return;
+}
+
+function mergeOptimisticStudents(className, students) {
+  if (window.ProposalsModule && ProposalsModule.mergeOptimisticStudents) return ProposalsModule.mergeOptimisticStudents(className, students);
+  return students;
+}
+
+// Merge server-provided students for a single class with any optimistic proposals
+function mergeServerStudents(className, serverStudents) {
+  if (!className) return;
+  
+  globalData.studentsByClass = globalData.studentsByClass || {};
+  
+  // Build a map of server proposals by student id
+  const serverMap = {};
+  (serverStudents || []).forEach(s => { 
+    serverMap[s.id] = Array.isArray(s.proposals) ? s.proposals.slice() : []; 
+  });
+
+  const existing = globalData.studentsByClass[className] || null;
+  
+  if (!existing) {
+    // No existing data: clone server students
+    const cloned = (serverStudents || []).map(s => ({ 
+      ...(s || {}), 
+      proposals: Array.isArray(s.proposals) ? [...s.proposals] : [] 
+    }));
+    globalData.studentsByClass[className] = cloned;
+  } else {
+    // Merge server proposals into existing students (preserve existing proposals)
+    globalData.studentsByClass[className] = existing.map(s => {
+      const serverList = serverMap[s.id] || [];
+      const existingProps = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+      const existingIds = new Set(existingProps.map(p => String(p.id)));
+      
+      // Add new server proposals that don't exist yet
+      serverList.forEach(sp => {
+        if (!existingIds.has(String(sp.id))) {
+          try{ 
+            sp._temp = false; 
+            sp.canDelete = String(sp.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase(); 
+          }catch(e){}
+          existingProps.push(sp);
+        }
+      });
+      
+      return { ...(s || {}), proposals: existingProps };
+    });
+  }
+
+  // CRITICAL FIX: ALWAYS merge optimistic proposals (don't skip this!)
+  if (window.ProposalsModule && ProposalsModule.mergeOptimisticStudents) {
+    globalData.studentsByClass[className] = ProposalsModule.mergeOptimisticStudents(className, globalData.studentsByClass[className]);
+  }
+  
+  // Also update ProposalsCore state if available (for caching purposes)
+  if (window.ProposalsCore && ProposalsCore.setStudentsForClass) {
+    try { 
+      ProposalsCore.setStudentsForClass(className, globalData.studentsByClass[className]); 
+    } catch(e){ 
+      console.error('ProposalsCore.setStudentsForClass failed', e); 
+    }
+  }
+}
+
+// Apply an entire server payload into globalData in a safe way (merging student lists)
+function applyServerData(newData) {
+  if (!newData) return;
+  globalData = globalData || {};
+
+  try{ console.debug('[DBG] applyServerData called', { keys: Object.keys(newData||{}) }); }catch(e){}
+
+  // shallow copy other top-level properties
+  Object.keys(newData).forEach(k => {
+    if (k === 'studentsByClass') return;
+    globalData[k] = newData[k];
+  });
+
+  if (newData.studentsByClass) {
+    globalData.studentsByClass = globalData.studentsByClass || {};
+    Object.keys(newData.studentsByClass).forEach(cls => {
+      try{ console.debug('[DBG] applyServerData merging class', cls, { count: (newData.studentsByClass[cls]||[]).length }); }catch(e){}
+      // SIMPLIFIED: Always use mergeServerStudents (handles everything including optimistic merge)
+      mergeServerStudents(cls, newData.studentsByClass[cls]);
+    });
+  }
+}
+
+// Reconcile all optimistic entries against current globalData (useful after deletes)
+function reconcileAllOptimistic() {
+  if (window.ProposalsModule && ProposalsModule.reconcileAllOptimistic) return ProposalsModule.reconcileAllOptimistic();
+}
+
+// Funktion global definieren
+function renderTeacherView(container) {
+  container.innerHTML =
+    '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Lade Daten...</p></div>';
+
+  // Lade nur die Klassennamen und Phaseninfos (leichtgewichtig)
+  google.script.run
+    .withSuccessHandler(data => {
+      if (!data || data.success === false) {
+        container.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
+        return;
+      }
+      globalData = data;
+      buildTeacherInterface(container, data.classNames, data.phase, data.phaseDescription);
+    })
+    .withFailureHandler(err => {
+      container.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
+    })
+    .getTeacherSummary();
+}
+
+// Neue Funktion: Interface mit Dropdown sofort anzeigen
+function buildTeacherInterface(container, classNames, phase, phaseDescription) {
+  let phaseBadge = phase === 'PROPOSAL'
+    ? '<span class="text-warning"><i class="fa-solid fa-pen-to-square"></i> VORSCHLAGSPHASE</span>'
+    : '<span class="text-success"><i class="fa-solid fa-check-to-slot"></i> ABSTIMMUNGSPHASE</span>';
+
+  let html = `
+    <div class="header-panel">
+        <div class="header-info">
+            <div class="header-title">${phaseBadge}</div>
+            <div class="header-sub">${phaseDescription || ""}</div>
+        </div>
+        <div style="width: 200px;">
+            <div class="input-group">
+                <span class="input-group-text bg-dark border-secondary text-secondary" style="padding: 6px 10px;"><i class="fa-solid fa-users"></i></span>
+                <select class="form-select bg-dark text-light border-secondary" style="font-size:13px; padding: 6px;" id="class-select">
+                  <option value="" selected disabled>-- Klasse --</option>
+                  ${classNames.map(c => `<option value="${c}">${c}</option>`).join('')}
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="search-container mt-3">
+        <i class="fa-solid fa-magnifying-glass search-icon"></i>
+        <input type="text" id="student-search" class="search-input" placeholder="Schüler suchen..." oninput="handleStudentSearch(this.value)">
+    </div>
+    <div id="student-list-area"></div>
+  `;
+  container.innerHTML = html;
+
+  const listArea = document.getElementById('student-list-area');
+  if (listArea) {
+    listArea.innerHTML = '<div class="search-hint-card">Bitte eine Klasse auswählen oder mindestens 2 Zeichen eingeben, um alle Schüler zu durchsuchen.</div>';
+  }
+
+  // Event-Listener für Lazy Loading
+  const select = document.getElementById('class-select');
+  if (select) {
+    select.addEventListener('change', function() {
+      const className = this.value;
+      renderStudentListLazy(className);
+    });
+  }
+
+  // Subscribe to ProposalsCore updates so UI updates when core state changes
+  try{
+    if(window.ProposalsCore && ProposalsCore.subscribe){
+      ProposalsCore.subscribe((type, payload) => {
+        try{
+          const sel = document.getElementById('class-select');
+          const current = sel ? sel.value : null;
+          if(payload && payload.className && current && String(payload.className) === String(current)){
+            // re-render current class when proposals change
+            renderStudentList(current);
+          }
+        }catch(e){}
+      });
+    }
+  }catch(e){}
+}
+
+// Neue Funktion: Lädt die Schülerdaten erst bei Auswahl
+function renderStudentListLazy(className) {
+  const listArea = document.getElementById('student-list-area');
+  if (globalSearchDebounce) {
+    clearTimeout(globalSearchDebounce);
+    globalSearchDebounce = null;
+  }
+  globalSearchRequestId++;
+  if (!className) {
+    listArea.innerHTML = '';
+    return;
+  }
+  // Token MUSS am Anfang definiert werden, damit alle async Callbacks Zugriff haben
+  const token = Date.now();
+  classRequestToken[className] = token;
+
+  // 1. Prüfen, ob Daten bereits im Frontend-Cache sind
+  if (globalData.studentsByClass && globalData.studentsByClass[className]) {
+    renderStudentList(className);
+    // Proposals trotzdem im Hintergrund aktualisieren
+    refreshProposalsInBackground(className);
+    return;
+  }
+
+  listArea.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Lade Schülerdaten...</p></div>';
+  
+  // Client-side cache: check localStorage for cached class by version
+  let cacheWasUsed = false;
+  try {
+    const cacheKey = 'class_cache_' + encodeURIComponent(className);
+    const cached = localStorage.getItem(cacheKey);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        if (parsed && parsed.classVersion && parsed.className === className) {
+          // Use cached students immediately. Preserve any cached proposals so
+          // newly created proposals remain visible after a reload. We still
+          // refresh proposals in background to get authoritative server data.
+          const studentsFromCache = (parsed.students || []).map(s => ({
+            ...s,
+            proposals: Array.isArray(s.proposals) ? s.proposals : []
+          }));
+          // Wichtig: Phase nicht aus dem Cache übernehmen, um falsche Ansicht zu vermeiden
+          applyServerData({ studentsByClass: { [className]: studentsFromCache } });
+          cacheWasUsed = true;
+        }
+      } catch (e) { /* ignore parse errors */ }
+    }
+  } catch (e) { /* ignore localStorage errors */ }
+
+  // Wenn Cache verwendet wurde, nur Phase + Proposals nachladen (parallel)
+  if (cacheWasUsed) {
+    renderStudentList(className); // Sofort mit gecachten Daten rendern
+    
+    let phaseData = null;
+    let proposalData = null;
+    let phaseSuccess = false;
+    let proposalSuccess = false;
+    let cacheLoadCount = 0;
+    
+    const finishCacheLoad = () => {
+      if (cacheLoadCount < 2) return;
+      if (classRequestToken[className] !== token) return;
+      
+      // Nur nochmal rendern, wenn beide fertig sind (für Feintuning)
+      renderStudentList(className);
+    };
+    
+    // Parallel: Phase + Proposals (oder Proposals mit automatischen Votes wenn VOTING)
+    google.script.run
+      .withSuccessHandler(summary => {
+        if (classRequestToken[className] !== token) return;
+        phaseSuccess = true;
+        phaseData = summary;
+        
+        // Phase sofort updaten
+        if (summary) {
+          globalData.phase = summary.phase || globalData.phase;
+          globalData.phaseDescription = summary.phaseDescription || globalData.phaseDescription;
+        }
+        
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .withFailureHandler(() => {
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .getTeacherSummary();
+    
+    // Proposals mit ensureCreatorVotes kombiniert
+    google.script.run
+      .withSuccessHandler(propData => {
+        if (classRequestToken[className] !== token) return;
+        proposalSuccess = true;
+        proposalData = propData;
+        
+        // SOFORT Proposals mergen und anzeigen
+        if (propData && propData.success !== false) {
+          const map = propData.proposalsByStudent || {};
+          const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+          students.forEach(s => {
+            const existing = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+            const serverList = Array.isArray(map[s.id]) ? map[s.id] : [];
+            const existingIds = new Set(existing.map(p => String(p.id)));
+            serverList.forEach(sp => {
+              if (!existingIds.has(String(sp.id))) {
+                try{ sp._temp = false; sp.canDelete = String(sp.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase(); }catch(e){}
+                existing.push(sp);
+              }
+            });
+            s.proposals = existing;
+          });
+          applyServerData({ studentsByClass: { [className]: students } });
+          
+          // Cache aktualisieren
+          try {
+            const cacheKey = 'class_cache_' + encodeURIComponent(className);
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              parsed.students = students;
+              localStorage.setItem(cacheKey, JSON.stringify(parsed));
+            }
+          } catch (e) { /* ignore */ }
+          
+          // SOFORT renderWindow aufrufen - updated nur sichtbare Zellen
+          if (window.currentRenderWindow) {
+            try { window.currentRenderWindow(); } catch(e) { console.error('renderWindow failed:', e); }
+          }
+        }
+        
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .withFailureHandler(() => {
+        cacheLoadCount++;
+        finishCacheLoad();
+      })
+      .getProposalsForClassAndEnsureVotes(className);
+    return;
+  }
+
+  // Token bereits am Anfang definiert
+  // const token = Date.now();  <-- ENTFERNT, wird oben definiert
+  
+  // Starte BEIDE Requests parallel (statt sequential)
+  let studentData = null;
+  let proposalData = null;
+  let studentSuccess = false;
+  let proposalSuccess = false;
+  let callCount = 0;
+  
+  const finishLoad = () => {
+    // Warte bis beide Responses zurück sind
+    if (callCount < 2) return;
+    if (classRequestToken[className] !== token) return;
+    
+    // Proposals wurden bereits verarbeitet, nochmal rendern falls nötig
+    if (proposalSuccess && proposalData && proposalData.success !== false) {
+      renderStudentList(className);
+    }
+  };
+  
+  // Request 1: Students + Phase
+  google.script.run
+    .withSuccessHandler(data => {
+      if (classRequestToken[className] !== token) return;
+      if (!data || data.success === false) {
+        listArea.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
+        return;
+      }
+      studentSuccess = true;
+      studentData = data;
+      
+      // SOFORT anzeigen ohne auf Proposals zu warten
+      globalData.phase = data.phase;
+      globalData.phaseDescription = data.phaseDescription;
+      applyServerData({ 
+        phase: data.phase, 
+        phaseDescription: data.phaseDescription, 
+        studentsByClass: { [className]: (data.studentsByClass && data.studentsByClass[className]) || [] } 
+      });
+      
+      // Cache speichern
+      try {
+        const cacheKey = 'class_cache_' + encodeURIComponent(className);
+        const toStore = { 
+          className: className, 
+          classVersion: data.classVersion || null, 
+          students: (data.studentsByClass && data.studentsByClass[className]) || [], 
+          phase: data.phase, 
+          phaseDescription: data.phaseDescription 
+        };
+        localStorage.setItem(cacheKey, JSON.stringify(toStore));
+      } catch (e) { /* ignore localStorage errors */ }
+      
+      // SOFORT rendern (Schüler + Bilder werden sofort sichtbar)
+      renderStudentList(className);
+      
+      callCount++;
+      finishLoad();
+    })
+    .withFailureHandler(err => {
+      callCount++;
+      finishLoad();
+    })
+    .getStudentsForClassLight(className);
+  
+  // Request 2: Proposals (parallel!) - mit ensureCreatorVotes kombiniert für VOTING phase
+  google.script.run
+    .withSuccessHandler(propData => {
+      if (classRequestToken[className] !== token) return;
+      proposalSuccess = true;
+      proposalData = propData;
+      
+      // SOFORT verarbeiten und anzeigen
+      if (propData && propData.success !== false) {
+        const map = propData.proposalsByStudent || {};
+        const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+        students.forEach(s => {
+          const existing = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+          const serverList = Array.isArray(map[s.id]) ? map[s.id] : [];
+          const existingIds = new Set(existing.map(p => String(p.id)));
+          serverList.forEach(sp => {
+            if (!existingIds.has(String(sp.id))) {
+              try{
+                sp._temp = false;
+                sp.canDelete = String(sp.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase();
+              }catch(e){}
+              existing.push(sp);
+            }
+          });
+          s.proposals = existing;
+        });
+        applyServerData({ studentsByClass: { [className]: students } });
+        
+        // Cache mit Proposals aktualisieren
+        try {
+          const cacheKey = 'class_cache_' + encodeURIComponent(className);
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            parsed.students = students;
+            localStorage.setItem(cacheKey, JSON.stringify(parsed));
+          }
+        } catch (e) { /* ignore */ }
+        
+        // SOFORT renderWindow aufrufen - updated nur sichtbare Zellen
+        if (window.currentRenderWindow) {
+          try { window.currentRenderWindow(); } catch(e) { console.error('renderWindow failed:', e); }
+        }
+      }
+      
+      callCount++;
+      finishLoad();
+    })
+    .withFailureHandler(err => {
+      callCount++;
+      finishLoad();
+    })
+    .getProposalsForClassAndEnsureVotes(className);
+    
+}
+
+function showProposalsLoading(className) {
+  const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+  students.forEach(s => {
+    const cell = document.getElementById(`proposals-cell-${s.id}`);
+    if (cell) {
+      cell.innerHTML = '<div class="text-center py-2"><div class="spinner-border spinner-border-sm text-muted" style="width:0.9rem; height:0.9rem;"></div></div>';
+    }
+  });
+}
+
+function refreshProposalsInBackground(className) {
+  google.script.run
+    .withSuccessHandler(propData => {
+      if (propData && propData.success !== false) {
+        const map = propData.proposalsByStudent || {};
+        try{
+          // Prefer ProposalsCore to merge/confirm server proposals
+          if(window.ProposalsCore && ProposalsCore.confirmServerMap){
+            ProposalsCore.confirmServerMap(map);
+            // Update UI from consolidated state
+            try{ updateUIWithoutReload(className); }catch(e){}
+            // Persist cache from core
+            try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(className); }catch(e){}
+            return;
+          }
+        }catch(e){ console.error('refreshProposalsInBackground ProposalsCore.confirmServerMap failed', e); }
+
+        // Fallback: previous merge behavior
+        const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+        students.forEach(s => {
+          const existing = Array.isArray(s.proposals) ? s.proposals.slice() : [];
+          const serverList = Array.isArray(map[s.id]) ? map[s.id] : [];
+          const existingIds = new Set(existing.map(p => String(p.id)));
+          serverList.forEach(sp => {
+            if (!existingIds.has(String(sp.id))) existing.push(sp);
+          });
+          s.proposals = existing;
+        });
+        applyServerData({ studentsByClass: { [className]: students } });
+        updateUIWithoutReload(className);
+
+        // Cache mit Proposals aktualisieren
+        try {
+          const cacheKey = 'class_cache_' + encodeURIComponent(className);
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            parsed.students = students; // Mit Proposals
+            localStorage.setItem(cacheKey, JSON.stringify(parsed));
+          }
+        } catch (e) { /* ignore */ }
+      }
+    })
+    .withFailureHandler(err => { console.error('Failed to refresh proposals in background:', err); })
+    .getProposalsForClass(className);
+}
+
+function renderStudentList(className) {
+  const listArea = document.getElementById('student-list-area');
+  // Prefer ProposalsCore state if available
+  let cached = null;
+  try{
+    if(window.ProposalsCore && ProposalsCore.getState){
+      const st = ProposalsCore.getState();
+      if(st && st.studentsByClass && st.studentsByClass[className]) cached = st.studentsByClass[className];
+    }
+  }catch(e){}
+  if(!cached) cached = globalData.studentsByClass ? globalData.studentsByClass[className] : null;
+  const phase = globalData.phase;
+
+  if (!cached) {
+    listArea.innerHTML = '<div class="alert alert-warning">Keine Schülerdaten für diese Klasse geladen.</div>';
+    return;
+  }
+  
+  // Suchfeld zurücksetzen bei Klassenwechsel
+  const searchInput = document.getElementById('student-search');
+  const keepQuery = pendingStudentFocus && pendingStudentFocus.className === className;
+  if (searchInput && !keepQuery) searchInput.value = '';
+
+  const enriched = mergeOptimisticStudents(className, cached);
+  const filtered = (enriched||[]).map(s => ({
+    ...s,
+    proposals: (s.proposals || []).filter(p => !pendingDeletions.has(p.id))
+  }));
+
+  // Chunked rendering: avoid blocking the main thread when many rows
+  renderStudentTableChunked(listArea, filtered, phase);
+
+  if (pendingStudentFocus && pendingStudentFocus.className === className) {
+    focusStudentRow(pendingStudentFocus.studentId);
+    pendingStudentFocus = null;
+  }
+}
+
+function renderStudentTableChunked(container, students, phase) {
+  // Virtual scrolling implementation
+  if (!container) return;
+  const isProposal = (phase === 'PROPOSAL');
+  const isVoting = (phase === 'VOTING');
+  console.debug('[renderStudentTableChunked] Phase:', phase, 'isProposal:', isProposal, 'isVoting:', isVoting, 'students:', students.length);
+  const rowHeight = 170; // px per row (increased to accommodate multiple proposals)
+  const buffer = 6; // rows to render before/after viewport
+  
+  // Speichere className und Student-IDs für späteres Lookup
+  const className = students.length > 0 ? students[0].klasse : '';
+  const studentIds = students.map(s => s.id);
+
+  // Build scrollable wrapper
+  container.innerHTML = `
+    <div class="virtual-list" style="height:600px; overflow:auto; position:relative;">
+      <div class="spacer" style="width:100%;"></div>
+      <div class="visible-rows" style="position:absolute; left:0; right:0; top:0;"></div>
+    </div>`;
+
+  const wrapper = container.querySelector('.virtual-list');
+  const spacer = wrapper.querySelector('.spacer');
+  const visible = wrapper.querySelector('.visible-rows');
+
+  const total = studentIds.length;
+  spacer.style.height = (total * rowHeight) + 'px';
+
+  function renderWindow() {
+    const scrollTop = wrapper.scrollTop;
+    const start = Math.max(0, Math.floor(scrollTop / rowHeight) - buffer);
+    const visibleCount = Math.ceil(wrapper.clientHeight / rowHeight) + buffer * 2;
+    const end = Math.min(total, start + visibleCount);
+
+    // Phase bei jedem Render neu auslesen, um Konsistenz zu garantieren
+    const currentPhase = globalData.phase || phase;
+    const isCurrentProposal = (currentPhase === 'PROPOSAL');
+    const isCurrentVoting = (currentPhase === 'VOTING');
+
+    // Hole aktuelle Schülerdaten aus globalData (nicht aus Snapshot)
+    const currentStudents = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+    const studentMap = {};
+    currentStudents.forEach(s => { studentMap[s.id] = s; });
+
+    let html = '';
+    for (let i = start; i < end; i++) {
+      const studentId = studentIds[i];
+      const s = studentMap[studentId];
+      if (!s) continue;
+      
+      let proposalsHtml = '';
+      
+      // Verwende aktuelle Phase-Flags
+      if (isCurrentProposal) {
+        proposalsHtml = getProposalListHtml(s, s.klasse);
+      } else if (isCurrentVoting) {
+        proposalsHtml = getVotingProposalsHtml(s);
+      }
+      
+      // Eingabefeld nur in PROPOSAL-Phase
+      const inputHtml = isCurrentProposal ? `<div id="input-container-${s.id}">${generateInputRowHtml(s.id, `in-${s.id}-0`, s.vorname)}</div>` : '';
+      
+      const top = i * rowHeight;
+      html += `<div class="student-row" data-student-id="${s.id}" data-class-name="${s.klasse}" style="position:absolute; left:0; right:0; top:${top}px; min-height:${rowHeight}px; box-sizing:border-box; padding:8px;">
+          <div style="display:flex; gap:12px; align-items:flex-start;">
+            <div style="flex:0 0 180px;">${getStudentInfoHtml(s)}</div>
+            <div style="flex:1; max-height:${rowHeight - 20}px; overflow:visible;" id="proposals-cell-${s.id}">${proposalsHtml}</div>
+            <div style="flex:0 0 360px;">${inputHtml}</div>
+          </div>
+        </div>`;
+    }
+
+    visible.innerHTML = html;
+    // Re-init photo observer for newly rendered images
+    try { initPhotoObserver(); } catch (e) {}
+  }
+
+  // Attach scroll handler
+  wrapper.addEventListener('scroll', throttle(renderWindow, 50));
+  // Speichere renderWindow global, damit Proposal-Updates triggern können
+  window.currentRenderWindow = renderWindow;
+  // initial render
+  renderWindow();
+}
+
+function handleStudentSearch(query) {
+  const select = document.getElementById('class-select');
+  const currentClass = select ? select.value : '';
+  if (currentClass) {
+    filterStudentsInClass(currentClass, query);
+  } else {
+    performGlobalStudentSearch(query);
+  }
+}
+
+function filterStudentsInClass(className, query) {
+  const q = String(query || '').toLowerCase().trim();
+  const rows = document.querySelectorAll(`.student-row[data-student-id]`);
+  rows.forEach(row => {
+    if (row.dataset.className && row.dataset.className !== className) {
+      // rows from anderen Klassen sind aktuell nicht sichtbar
+      row.style.display = '';
+      return;
+    }
+    const name = row.querySelector('.student-name')?.innerText.toLowerCase() || '';
+    const firstname = row.querySelector('.student-firstname')?.innerText.toLowerCase() || '';
+    if (!q || name.includes(q) || firstname.includes(q)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+function performGlobalStudentSearch(query) {
+  const listArea = document.getElementById('student-list-area');
+  if (!listArea) return;
+
+  const trimmed = String(query || '').trim();
+  if (globalSearchDebounce) {
+    clearTimeout(globalSearchDebounce);
+    globalSearchDebounce = null;
+  }
+
+  if (!trimmed) {
+    globalSearchRequestId++;
+    listArea.innerHTML = '<div class="search-hint-card">Bitte eine Klasse auswählen oder mindestens 2 Zeichen eingeben, um zu suchen.</div>';
+    return;
+  }
+
+  if (trimmed.length < 2) {
+    globalSearchRequestId++;
+    listArea.innerHTML = '<div class="search-hint-card">Bitte mindestens 2 Zeichen eingeben.</div>';
+    return;
+  }
+
+  const requestId = ++globalSearchRequestId;
+  listArea.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Durchsuche alle Klassen...</p></div>';
+
+  const searchTerm = trimmed;
+  globalSearchDebounce = setTimeout(() => {
+    globalSearchDebounce = null;
+    google.script.run
+      .withSuccessHandler(res => {
+        if (requestId !== globalSearchRequestId) return;
+        if (!res || res.success === false) {
+          const errMsg = (res && res.error) ? res.error : 'Unbekannter Fehler';
+          listArea.innerHTML = `<div class="alert alert-danger">Suche fehlgeschlagen: ${errMsg}</div>`;
+          return;
+        }
+        renderGlobalSearchResults(res.results || [], searchTerm, !!res.limited, res.totalMatches || (res.results || []).length);
+      })
+      .withFailureHandler(err => {
+        if (requestId !== globalSearchRequestId) return;
+        listArea.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
+      })
+      .searchStudentsAcrossClasses(searchTerm, 25);
+  }, 250);
+}
+
+// Throttle helper
+function throttle(fn, wait){
+  let last = 0, timeout = null;
+  return function(){
+    const now = Date.now();
+    const args = arguments;
+    const later = function(){ last = Date.now(); timeout = null; fn.apply(null, args); };
+    if(now - last >= wait){ last = now; fn.apply(null, args); }
+    else if(!timeout){ timeout = setTimeout(later, wait - (now - last)); }
+  };
+}
+
+// Photo lazy-load using IntersectionObserver
+let _photoObserver = null;
+function initPhotoObserver(){
+  try{
+    if(typeof IntersectionObserver === 'undefined') return;
+    // Always (re)create observer so its root is the current virtual-list wrapper
+    try { if(_photoObserver) { _photoObserver.disconnect(); _photoObserver = null; } } catch(e) {}
+
+    const rootEl = document.querySelector('.virtual-list') || null;
+    _photoObserver = new IntersectionObserver(entries => {
+      entries.forEach(ent => {
+        if(!ent.isIntersecting) return;
+        const img = ent.target;
+        const src = img.dataset && img.dataset.src;
+        if(src){ img.src = src; }
+        try { _photoObserver.unobserve(img); } catch(e) {}
+      });
+    }, { root: rootEl, rootMargin: '200px' });
+
+    // observe any currently rendered images inside the root (or whole document if no root)
+    const toObserve = rootEl ? rootEl.querySelectorAll('img.photo-lazy') : document.querySelectorAll('img.photo-lazy');
+    toObserve.forEach(img => { if(img.dataset && img.dataset.src) _photoObserver.observe(img); });
+  }catch(e){ console.error('initPhotoObserver failed', e); }
+}
+
+function renderGlobalSearchResults(results, query, limited, totalMatches) {
+  const listArea = document.getElementById('student-list-area');
+  if (!listArea) return;
+
+  if (!results || results.length === 0) {
+    listArea.innerHTML = `<div class="search-hint-card">Keine Treffer für „${query}“ gefunden.</div>`;
+    return;
+  }
+
+  let html = '<div class="global-search-results">';
+  results.forEach(entry => { html += buildGlobalResultCard(entry); });
+  html += '</div>';
+
+  if (limited) {
+    html += `<div class="search-hint-card info">Nur die ersten ${results.length} von ${totalMatches} Treffern werden angezeigt.</div>`;
+  }
+
+  listArea.innerHTML = html;
+}
+
+function buildGlobalResultCard(entry) {
+  const initials = ((entry.vorname ? entry.vorname[0] : '') + (entry.nachname ? entry.nachname[0] : '')).trim().toUpperCase() || '?';
+  const photoHtml = entry.photoUrl
+    ? `<img src="${entry.photoUrl}" alt="${entry.vorname || ''} ${entry.nachname || ''}" loading="lazy">`
+    : `<div class="result-avatar-fallback">${initials}</div>`;
+  const klass = encodeURIComponent(entry.klasse || '');
+  const student = encodeURIComponent(entry.id || '');
+
+  return `
+    <div class="global-result-card">
+      <div class="global-result-left">
+        <div class="result-avatar">${photoHtml}</div>
+        <div>
+          <div class="result-name">${entry.nachname || ''}, ${entry.vorname || ''}</div>
+          <div class="result-meta">${entry.klasse || '-'} • ${(entry.email || '').split('@')[0] || 'kein Login'}</div>
+        </div>
+      </div>
+      <button class="btn btn-sm btn-outline-info" onclick="loadStudentFromGlobalSearch('${klass}', '${student}')">
+        Klasse öffnen
+      </button>
+    </div>
+  `;
+}
+
+function loadStudentFromGlobalSearch(encodedClass, encodedStudentId) {
+  const className = decodeURIComponent(encodedClass || '');
+  const studentId = decodeURIComponent(encodedStudentId || '');
+  if (!className || !studentId) return;
+
+  const select = document.getElementById('class-select');
+  if (select) {
+    select.value = className;
+  }
+  pendingStudentFocus = { className, studentId };
+  handleStudentSearch(''); // sorgt dafür, dass bei geöffnetem Dropdown kein alter Filter aktiv ist
+  renderStudentListLazy(className);
+}
+
+function focusStudentRow(studentId) {
+  if (!studentId) return;
+  setTimeout(() => {
+    const row = Array.from(document.querySelectorAll('.student-row')).find(r => r.dataset.studentId === studentId);
+    if (!row) return;
+    row.classList.add('student-row-highlight');
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => row.classList.remove('student-row-highlight'), 2000);
+  }, 150);
+}
+
+// ===============================================
+// VIEW: PROPOSAL (Vorschlagsphase)
+// ===============================================
+
+function renderProposalMatrix(container, students) {
+  // Kommentare laden, falls noch nicht geschehen
+  loadCommentsDict();
+  
+  let html = `
+    <table class="app-table">
+        <thead>
+          <tr>
+            <th class="col-student">SCHÜLER</th>
+            <th>BESTEHENDE VORSCHLÄGE</th>
+            <th style="width: 350px;">NEUE EINTRÄGE</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  students.forEach(s => {
+    html += `
+      <tr class="student-row" data-student-id="${s.id}" data-class-name="${s.klasse}">
+        <td>${getStudentInfoHtml(s)}</td>
+        <td id="proposals-cell-${s.id}">${getProposalListHtml(s, s.klasse)}</td>
+        <td>
+          <div id="input-container-${s.id}">${generateInputRowHtml(s.id, `in-${s.id}-0`, s.vorname)}</div>
+        </td>
+      </tr>
+    `;
+  });
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+function getProposalListHtml(s, className) {
+  if (window.ProposalsModule && ProposalsModule.getProposalListHtml) return ProposalsModule.getProposalListHtml(s, className);
+  return '';
+}
+
+function getVotingProposalsHtml(s) {
+  if (window.ProposalsModule && ProposalsModule.getVotingProposalsHtml) return ProposalsModule.getVotingProposalsHtml(s);
+  return '';
+}
+
+function generateInputRowHtml(studentId, uniqueInputId, firstName) {
+  const btnId = `btn-${uniqueInputId}`;
+  return `
+    <div class="custom-input-group fade-in-row" id="group-${uniqueInputId}">
+      <input type="text" class="custom-input proposal-input"
+             id="${uniqueInputId}"
+             data-studentid="${studentId}"
+             data-firstname="${firstName}"
+             data-btnid="${btnId}"
+             placeholder="Bemerkung eingeben..."
+             autocomplete="off"
+             onblur="autoSaveProposal(this)"
+             onkeydown="if(event.key === 'Enter') { this.blur(); }"
+             oninput="clearFieldError(this)">
+
+      <button id="${btnId}" class="input-status-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+         <i class="fa-solid fa-chevron-down"></i>
+      </button>
+
+      <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
+         <li><h6 class="dropdown-header">Textbaustein wählen</h6></li>
+         ${typeof globalComments !== "undefined" && Array.isArray(globalComments)
+            ? globalComments.map(c =>
+                `<li><a class="dropdown-item small" href="#" onclick="applyComment('${uniqueInputId}', '${c.id}'); return false;"><span class="text-primary fw-bold">[${c.category}]</span> ${c.text}</a></li>`
+              ).join('')
+            : ''
+         }
+      </ul>
+    </div>
+    <div class="field-error-message hidden" id="err-${uniqueInputId}"></div>
+  `;
+} 
+
+// --- OPTIMISTIC AUTO-SAVE (Sofortiges Feedback) ---
+function validateProposalText(text) {
+  const t = String(text || "").trim();
+  if (t.length === 0) return { valid: false, message: "Eingabe ist leer" };
+  if (t.length < 5) return { valid: false, message: "Zu kurz (mindestens 5 Zeichen)" };
+  if (t.length > 500) return { valid: false, message: "Zu lang (max. 500 Zeichen)" };
+  return { valid: true };
+}
+
+function showFieldError(inputElement, message) {
+  try {
+    const group = inputElement ? document.getElementById('group-' + inputElement.id) : null;
+    if (group) group.classList.add('error');
+    const errEl = document.getElementById('err-' + inputElement.id);
+    if (errEl) { errEl.innerText = message; errEl.classList.remove('hidden'); }
+    inputElement.focus();
+  } catch (e) { console.error(e); }
+}
+
+function clearFieldError(inputElement) {
+  try {
+    const group = inputElement ? document.getElementById('group-' + inputElement.id) : null;
+    if (group) group.classList.remove('error');
+    const errEl = document.getElementById('err-' + inputElement.id);
+    if (errEl) { errEl.innerText = ""; errEl.classList.add('hidden'); }
+  } catch (e) { /* ignore */ }
+}
+
+function autoSaveProposal(inputElement) {
+  if (window.ProposalsModule && ProposalsModule.autoSaveProposal) return ProposalsModule.autoSaveProposal(inputElement);
+}
+
+// ===============================================
+// VIEW: VOTING
+// ===============================================
+
+
+function getStudentInfoHtml(s) {
+  const hasPhoto = Boolean(s.photoUrl);
+  // Prüfe ob Foto bereits im Cache ist
+  const isCached = loadedPhotos.has(s.id);
+  const loader = (hasPhoto && !isCached) ? '<div class="photo-loader-overlay"><div class="mini-spinner"></div></div>' : '';
+  // Use data-src for IntersectionObserver lazy loading; set placeholder src immediately
+  const dataSrcAttr = hasPhoto ? `data-src="${s.photoUrl}"` : '';
+  // Wenn bereits gecacht, setze sofort die richtige URL, sonst Placeholder
+  const initialSrc = isCached ? s.photoUrl : STUDENT_PHOTO_PLACEHOLDER;
+  const initialOpacity = isCached ? '1' : '0.65';
+
+  return `
+    <div class="d-flex align-items-center gap-3">
+      <div id="photo-wrap-${s.id}" class="photo-wrapper">
+        ${loader}
+        <img class="photo-lazy" id="photo-${s.id}" src="${initialSrc}"
+             ${dataSrcAttr}
+             loading="lazy" decoding="async" width="70" height="85"
+             onload="handleStudentPhotoLoad('${s.id}')"
+             onerror="handleStudentPhotoError('${s.id}')"
+             style="width:100%; height:100%; object-fit:cover; opacity:${initialOpacity}; transition:opacity 0.3s;">
+      </div>
+      <div>
+        <div class="student-name">${s.nachname || ""}</div>
+        <div class="student-firstname">${s.vorname || ""}</div>
+      </div>
+    </div>
+  `;
+}
+
+function handleStudentPhotoLoad(studentId) {
+  const wrap = document.getElementById(`photo-wrap-${studentId}`);
+  if (wrap) {
+    const overlay = wrap.querySelector('.photo-loader-overlay');
+    if (overlay) overlay.remove();
+  }
+  const img = document.getElementById(`photo-${studentId}`);
+  if (img) {
+    img.style.opacity = '1';
+    // Speichere erfolgreich geladenes Foto im Cache
+    loadedPhotos.set(studentId, true);
+  }
+}
+
+function handleStudentPhotoError(studentId) {
+  const img = document.getElementById(`photo-${studentId}`);
+  if (!img) return;
+  if (img.dataset.fallbackApplied === '1') {
+    handleStudentPhotoLoad(studentId);
+    return;
+  }
+  img.dataset.fallbackApplied = '1';
+  img.src = STUDENT_PHOTO_PLACEHOLDER;
+  handleStudentPhotoLoad(studentId);
+}
+
+function updateUIWithoutReload(className) {
+  // Update only the proposal cells that are currently rendered (visible in DOM)
+  // Virtual scrolling means not all student rows exist in DOM at once
+  const students = globalData.studentsByClass ? globalData.studentsByClass[className] : null;
+  if (!students) return;
+
+  students.forEach(s => {
+    const cell = document.getElementById(`proposals-cell-${s.id}`);
+    if (cell) {
+      const html = getProposalListHtml(s, className);
+      cell.innerHTML = html;
+    }
+  });
+}
+
+// Voting handler used by ProposalsModule.getVotingProposalsHtml
+function castVoteUI(proposalId, studentId, voteValue) {
+  try {
+    const myVotes = globalData.myVotes || {};
+    const currentVote = myVotes[proposalId] || 0;
+
+    // Toggle behaviour: clicking same vote again removes it
+    let newVote = voteValue;
+    if (currentVote === voteValue) newVote = 0;
+
+    // Optimistic UI update
+    myVotes[proposalId] = newVote;
+    globalData.myVotes = myVotes;
+
+    const selectEl = document.getElementById('class-select');
+    const currentClass = selectEl ? selectEl.value : '';
+    const students = (globalData.studentsByClass && globalData.studentsByClass[currentClass]) || [];
+    const student = students.find(s => String(s.id) === String(studentId));
+    // Optimistisch Zähler anpassen
+    if (student) {
+      const p = student.proposals.find(pp => String(pp.id) === String(proposalId));
+      if (p) {
+        const pos = Number(p.positiveCount || p.pos || 0);
+        const neg = Number(p.negativeCount || p.neg || 0);
+        let newPos = pos, newNeg = neg;
+        // remove previous vote effect
+        if (currentVote === 1) newPos -= 1;
+        if (currentVote === -1) newNeg -= 1;
+        // apply new vote effect
+        if (newVote === 1) newPos += 1;
+        if (newVote === -1) newNeg += 1;
+        p.positiveCount = Math.max(0, newPos);
+        p.negativeCount = Math.max(0, newNeg);
+      }
+    }
+    if (student) {
+      const cell = document.getElementById(`proposals-cell-${studentId}`);
+      if (cell) cell.innerHTML = getVotingProposalsHtml(student);
+    }
+
+    // Server call
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res || !res.success) {
+          console.error('castVote failed:', res);
+          showMessage('Fehler', (res && res.error) || 'Abstimmung fehlgeschlagen', 'error');
+          return;
+        }
+
+        // Update myVotes with authoritative value
+        myVotes[proposalId] = res.myVote || 0;
+        globalData.myVotes = myVotes;
+
+        // Update proposal counts in globalData
+        if (student) {
+          const p = student.proposals.find(pp => String(pp.id) === String(proposalId));
+          if (p) {
+            p.positiveCount = res.pos;
+            p.negativeCount = res.neg;
+            p.votersPos = res.votersPos ? res.votersPos.split(', ') : [];
+            p.votersNeg = res.votersNeg ? res.votersNeg.split(', ') : [];
+          }
+        }
+
+        // Re-render the proposals cell
+        const cell = document.getElementById(`proposals-cell-${studentId}`);
+        if (cell && student) cell.innerHTML = getVotingProposalsHtml(student);
+      })
+      .withFailureHandler(err => {
+        console.error('castVote network error:', err);
+        showMessage('Fehler', 'Netzwerkfehler: ' + err, 'error');
+        // Revert optimistic update
+        myVotes[proposalId] = currentVote;
+        globalData.myVotes = myVotes;
+        const cell = document.getElementById(`proposals-cell-${studentId}`);
+        if (cell && student) cell.innerHTML = getVotingProposalsHtml(student);
+      })
+      .castVote(proposalId, newVote);
+  } catch (e) {
+    console.error('castVoteUI error', e);
+  }
+}
+
+
+function addInputLine(studentId, firstName) {
+  const container = document.getElementById('input-container-' + studentId);
+  const newId = `in-${studentId}-${Date.now()}`;
+
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = generateInputRowHtml(studentId, newId, firstName);
+  container.appendChild(tempDiv.firstElementChild);
+
+  setTimeout(() => {
+    const el = document.getElementById(newId);
+    if (el) el.focus();
+  }, 50);
+}
+
+function applyComment(uniqueInputId, commentId) {
+  const input = document.getElementById(uniqueInputId);
+  const comment = (typeof globalComments !== "undefined" && Array.isArray(globalComments))
+    ? globalComments.find(c => c.id == commentId)
+    : null;
+
+  if (input && comment) {
+    let text = comment.text;
+    const firstName = input.dataset.firstname;
+    if (firstName) text = text.replace(/\$Vorname\$/g, firstName);
+    input.value = text;
+    input.focus();
+  }
+}
+
+function deleteEntry(proposalId) {
+  Swal.fire({
+    title: 'Löschen?',
+    text: 'Eintrag wirklich entfernen?',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ja, löschen',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9',
+    heightAuto: false
+  }).then((result) => {
+    if (!result.isConfirmed) return;
+
+    // Optimistic UI: mark as pending deletion and re-render class
+    pendingDeletions.add(proposalId);
+    const selectEl = document.getElementById('class-select') || document.querySelector('select');
+    const currentClass = selectEl ? selectEl.value : '';
+    if (currentClass) renderStudentList(currentClass);
+    else {
+      const row = document.getElementById('prop-row-' + proposalId);
+      if (row) { row.style.opacity = '0'; setTimeout(() => row.remove(), 300); }
+    }
+
+    // Server call
+    google.script.run
+      .withSuccessHandler(newData => {
+        pendingDeletions.delete(proposalId);
+        if (!newData || newData.success === false) {
+          console.error('deleteProposal failed', newData);
+          const msg = (newData && newData.message) || JSON.stringify(newData) || 'Löschen fehlgeschlagen.';
+          showMessage('Fehler', msg, 'error');
+          if (currentClass) renderStudentList(currentClass);
+          return;
+        }
+        // Merge server data into globalData while preserving optimistic entries
+        applyServerData(newData);
+        // Reconcile optimistic entries (clear temp badges/timeouts if server confirmed)
+        reconcileAllOptimistic();
+        if (currentClass) renderStudentList(currentClass);
+      })
+      .withFailureHandler(err => {
+        pendingDeletions.delete(proposalId);
+        console.error('deleteProposal() failed:', err);
+        showMessage('Fehler', 'Verbindung zum Server beim Löschen fehlgeschlagen.', 'error');
+        if (currentClass) renderStudentList(currentClass);
+      })
+      .deleteProposal(proposalId);
+  });
+}
+
+</script>
+
+    <script>
+// Admin Module with Tab Navigation
+console.log('[js-admin] script loaded');
+if (window.__moduleRegister) window.__moduleRegister('js-admin');
+
+window.addEventListener("error", (e) => {
+  console.error("WINDOW ERROR:", e.message, e.error && e.error.stack ? e.error.stack : e);
+});
+
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("UNHANDLED PROMISE:", e.reason && e.reason.stack ? e.reason.stack : e.reason);
+});
+
+function isDateInRange(checkDate, text) {
+  if (!checkDate || !text) return false;
+  const regex = /(\d{1,2})\.(\d{1,2})\.(\d{2,4})/g;
+  const matches = [...text.matchAll(regex)];
+  if (matches.length < 2) return false;
+  
+  const [d1, m1, y1] = [parseInt(matches[0][1]), parseInt(matches[0][2]), parseInt(matches[0][3])];
+  const [d2, m2, y2] = [parseInt(matches[1][1]), parseInt(matches[1][2]), parseInt(matches[1][3])];
+  
+  const start = new Date(y1 < 100 ? 2000 + y1 : y1, m1 - 1, d1);
+  const end = new Date(y2 < 100 ? 2000 + y2 : y2, m2 - 1, d2);
+  
+  return checkDate >= start && checkDate <= end;
+}
+
+function renderAdminView(container) {
+  console.time('ADMIN_VIEW_TOTAL');
+  
+  // SOFORT Lade-Spinner anzeigen (extrem schnell!)
+  container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" style="width:3rem;height:3rem;"></div><p class="mt-3 text-muted">Admin-Bereich wird geladen...</p></div>';
+  
+  // Daten mit EINEM Server-Call laden (statt 2!)
+  setTimeout(() => {
+    console.time('ADMIN_VIEW_SERVER_CALL');
+    runServer('getAdminInitData', null)
+    .then((data) => {
+      console.timeEnd('ADMIN_VIEW_SERVER_CALL');
+      console.time('ADMIN_VIEW_HTML_BUILD');
+      
+      const phase = data.phase || 'PROPOSAL';
+      const desc = data.descriptions || { proposal: "", voting: "" };
+
+      const badgeProp = phase === 'PROPOSAL' ? 'active' : 'inactive';
+      const badgeVote = phase === 'VOTING' ? 'active' : 'inactive';
+      const statusTextProp = phase === 'PROPOSAL' ? '✅ AKTIV' : '⚫ INAKTIV';
+      const statusTextVote = phase === 'VOTING' ? '✅ AKTIV' : '⚫ INAKTIV';
+
+      const htmlString = buildAdminHTML(phase, desc, badgeProp, badgeVote, statusTextProp, statusTextVote);
+      console.timeEnd('ADMIN_VIEW_HTML_BUILD');
+      console.time('ADMIN_VIEW_DOM_INSERT');
+      
+      container.innerHTML = htmlString;
+      
+      console.timeEnd('ADMIN_VIEW_DOM_INSERT');
+      console.time('ADMIN_VIEW_INIT_PICKERS');
+      
+      setTimeout(() => {
+        initializeDatePickers(desc.proposal, desc.voting);
+        console.timeEnd('ADMIN_VIEW_INIT_PICKERS');
+        console.timeEnd('ADMIN_VIEW_TOTAL');
+      }, 50);
+    })
+    .catch(err => {
+      console.error("renderAdminView failed:", err);
+      container.innerHTML = '<div class="alert alert-danger">Fehler beim Laden: ' + err + '</div>';
+    });
+  }, 10);
+}
+
+function buildAdminHTML(phase, desc, badgeProp, badgeVote, statusTextProp, statusTextVote) {
+  return `
+    <!-- Tab Navigation -->
+    <div class="admin-tabs-nav mb-3">
+      <button class="admin-tab-btn active" data-tab="zeitplanung" onclick="switchAdminTab('zeitplanung')">
+        <i class="fa-solid fa-clock me-2"></i> Zeitplanung
+      </button>
+      <button class="admin-tab-btn" data-tab="import" onclick="switchAdminTab('import')">
+        <i class="fa-solid fa-file-import me-2"></i> Import & Schüler
+      </button>
+      <button class="admin-tab-btn" data-tab="verwaltung" onclick="switchAdminTab('verwaltung')">
+        <i class="fa-solid fa-trash-can me-2"></i> Verwaltung
+      </button>
+      <button class="admin-tab-btn" data-tab="tools" onclick="switchAdminTab('tools')">
+        <i class="fa-solid fa-tools me-2"></i> Tools
+      </button>
+      <button class="admin-tab-btn" data-tab="hilfe" onclick="switchAdminTab('hilfe')";>
+          <i class="fa-solid fa-circle-info me-2"></i> Hilfe
+        </button>
+      </div>
+
+      <!-- Tab Content: Zeitplanung -->
+      <div class="admin-tab-content active" id="tab-zeitplanung">
+        <div class="admin-card" style="background:#1e293b; border:1px solid var(--border-dark); border-radius:6px; padding:15px;">
+          <h4 class="card-title" style="color:#fff; margin-bottom:12px; font-weight:600; font-size:1rem;">
+            Zeitplanung & Phasen
+          </h4>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <div class="p-2 rounded border border-secondary bg-dark">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="text-primary fw-bold mb-0 text-uppercase" style="font-size:12px;">Vorschlagsphase</label>
+                  <span class="badge ${badgeProp === 'active' ? 'bg-success' : 'bg-secondary'}" style="font-size:10px;">${statusTextProp}</span>
+                </div>
+                
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="text-muted small d-block mb-1">Von:</label>
+                    <input type="date" id="propStartDate" class="form-control form-control-sm bg-dark text-light border-secondary">
+                  </div>
+                  <div class="col-6">
+                    <label class="text-muted small d-block mb-1">Bis:</label>
+                    <input type="date" id="propEndDate" class="form-control form-control-sm bg-dark text-light border-secondary">
+                  </div>
+                </div>
+                
+                <input type="text" id="descProp" value="${desc.proposal}" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Format: TT.MM.JJJJ - TT.MM.JJJJ" readonly>
+                <small class="text-muted d-block" style="font-size:11px;">Format: TT.MM.JJJJ - TT.MM.JJJJ</small>
+
+                <button class="btn btn-outline-warning btn-sm w-100 mt-2" onclick="setPhase('PROPOSAL')">
+                  <i class="fa-solid fa-force me-1"></i> Manuell aktivieren
+                </button>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="p-2 rounded border border-secondary bg-dark">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <label class="text-success fw-bold mb-0 text-uppercase" style="font-size:12px;">Abstimmungsphase</label>
+                  <span class="badge ${badgeVote === 'active' ? 'bg-success' : 'bg-secondary'}" style="font-size:10px;">${statusTextVote}</span>
+                </div>
+                
+                <div class="row g-2 mb-2">
+                  <div class="col-6">
+                    <label class="text-muted small d-block mb-1">Von:</label>
+                    <input type="date" id="voteStartDate" class="form-control form-control-sm bg-dark text-light border-secondary">
+                  </div>
+                  <div class="col-6">
+                    <label class="text-muted small d-block mb-1">Bis:</label>
+                    <input type="date" id="voteEndDate" class="form-control form-control-sm bg-dark text-light border-secondary">
+                  </div>
+                </div>
+                
+                <input type="text" id="descVote" value="${desc.voting}" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Format: TT.MM.JJJJ - TT.MM.JJJJ" readonly>
+                <small class="text-muted d-block" style="font-size:11px;">Hat Vorrang vor Vorschlagsphase</small>
+
+                <button class="btn btn-outline-success btn-sm w-100 mt-2" onclick="setPhase('VOTING')">
+                  <i class="fa-solid fa-force me-1"></i> Manuell aktivieren
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center">
+            <button class="btn btn-outline-info btn-sm" onclick="enableAutoMode()">
+              <i class="fa-solid fa-rotate-left me-2"></i> Automatik reaktivieren
+            </button>
+            <button class="btn btn-primary" onclick="saveDescriptions()">
+              <i class="fa-solid fa-floppy-disk me-2"></i> Zeiträume speichern
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Import & Schüler -->
+      <div class="admin-tab-content" id="tab-import">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="admin-card" style="background:#1e293b; border:1px solid #ef4444; border-radius:6px; padding:15px;">
+              <h4 class="card-title text-danger mb-3 d-flex align-items-center" style="font-size:1rem; font-weight:600;">
+                <i class="fa-solid fa-file-import me-2"></i> Import
+              </h4>
+
+              <div class="alert alert-readable py-2 px-3 mb-3" style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); font-size:11px; line-height:1.4;">
+                <i class="fa-solid fa-triangle-exclamation me-2"></i><strong>Achtung:</strong> Import setzt die Datenbank zurück!
+              </div>
+
+              <div class="mb-3">
+                <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;"><i class="fa-solid fa-users me-1"></i> Schülerliste (CSV)</label>
+                <input type="file" id="f1" accept=".csv" class="form-control form-control-sm bg-dark text-light border-secondary">
+                <div class="text-muted" style="font-size:10px; margin-top:2px;">Format: Vorname;Nachname;Klasse</div>
+              </div>
+
+              <div class="mb-3">
+                <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;"><i class="fa-solid fa-comment me-1"></i> Textbausteine (TXT)</label>
+                <input type="file" id="f2" accept=".txt" class="form-control form-control-sm bg-dark text-light border-secondary">
+                <div class="text-muted" style="font-size:10px; margin-top:2px;">Format: #ID=Text;Kategorie</div>
+              </div>
+
+              <button onclick="startImport()" class="btn btn-danger w-100 fw-bold">
+                <i class="fa-solid fa-upload me-2"></i> Import starten
+              </button>
+              <div id="stat" class="mt-3 text-center fw-bold small text-muted"></div>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="admin-card" style="background:#1e293b; border:1px solid #10b981; border-radius:6px; padding:15px;">
+              <h4 class="card-title text-success mb-3 d-flex align-items-center" style="font-size:1rem; font-weight:600;">
+                <i class="fa-solid fa-user-plus me-2"></i> Schüler hinzufügen
+              </h4>
+              <p class="small text-muted mb-3" style="font-size:11px;">Neuen Schüler manuell hinzufügen (mit Foto)</p>
+              
+              <div class="row g-2 mb-3">
+                <div class="col-6">
+                  <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;">Vorname</label>
+                  <input type="text" id="newStudentVorname" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Max">
+                </div>
+                <div class="col-6">
+                  <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;">Nachname</label>
+                  <input type="text" id="newStudentNachname" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="Mustermann">
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;">Klasse</label>
+                <input type="text" id="newStudentKlasse" class="form-control form-control-sm bg-dark text-light border-secondary" placeholder="05A">
+              </div>
+              
+              <div class="mb-3">
+                <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;">Foto (optional)</label>
+                <input type="file" id="newStudentPhoto" accept="image/*" class="form-control form-control-sm bg-dark text-light border-secondary">
+                <div class="text-muted" style="font-size:10px; margin-top:2px;">JPG, PNG, GIF - max. 5MB</div>
+              </div>
+              
+              <button onclick="addStudentManually()" class="btn btn-success w-100 fw-bold">
+                <i class="fa-solid fa-plus me-2"></i> Hinzufügen
+              </button>
+              <div id="addStudentStat" class="mt-3 text-center small fw-bold"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Verwaltung -->
+      <div class="admin-tab-content" id="tab-verwaltung">
+        <div class="admin-card" style="background:#1e293b; border:1px solid #f59e0b; border-radius:6px; padding:15px;">
+          <h4 class="card-title text-warning mb-3 d-flex align-items-center" style="font-size:1rem; font-weight:600;">
+            <i class="fa-solid fa-trash-can me-2"></i> Daten-Verwaltung
+          </h4>
+          
+          <div class="alert py-2 px-3 mb-3" style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); color: #fbbf24; font-size:11px; line-height:1.5;">
+            <i class="fa-solid fa-info-circle me-2"></i>
+            <strong>Hier können Sie:</strong>
+            <ul class="mb-0 mt-2">
+              <li>Bemerkungseinträge von allen Schülern löschen</li>
+              <li>Abstimmungsergebnisse zurücksetzen</li>
+              <li>Für alle Schüler auf einmal oder einzelne auswählen</li>
+            </ul>
+          </div>
+          
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <button onclick="loadStudentsForManagement()" class="btn btn-warning w-100 fw-bold">
+                <i class="fa-solid fa-list me-2"></i> Schülerliste laden
+              </button>
+            </div>
+            <div class="col-md-3">
+              <button onclick="selectAllStudents()" class="btn btn-outline-secondary w-100" id="selectAllBtn" disabled>
+                <i class="fa-solid fa-check-double me-2"></i> Alle
+              </button>
+            </div>
+            <div class="col-md-3">
+              <button onclick="deselectAllStudents()" class="btn btn-outline-secondary w-100" id="deselectAllBtn" disabled>
+                <i class="fa-solid fa-times me-2"></i> Keine
+              </button>
+            </div>
+          </div>
+          
+          <div id="studentManagementList" class="mb-3" style="max-height: 400px; overflow-y: auto; background: #0f172a; border-radius: 6px; padding: 15px;">
+            <div class="text-center text-muted py-4" style="font-size:12px;">
+              <i class="fa-solid fa-arrow-up me-2"></i> Klicken Sie auf "Schülerliste laden"
+            </div>
+          </div>
+          
+          <div class="row g-3">
+            <div class="col-md-6">
+              <button onclick="deleteProposalsForSelected()" class="btn btn-danger w-100 fw-bold" id="deleteProposalsBtn" disabled>
+                <i class="fa-solid fa-trash me-2"></i> Bemerkungen löschen
+              </button>
+            </div>
+            <div class="col-md-6">
+              <button onclick="resetVotesForSelected()" class="btn btn-warning w-100 fw-bold" id="resetVotesBtn" disabled>
+                <i class="fa-solid fa-rotate-left me-2"></i> Votes zurücksetzen
+              </button>
+            </div>
+          </div>
+          
+          <div id="managementStat" class="mt-3 text-center fw-bold small"></div>
+
+          <hr class="border-secondary mt-4">
+          <div class="mt-3">
+            <p class="small text-muted mb-2"><i class="fa-solid fa-triangle-exclamation me-1 text-warning"></i> Nach einem Neu-Import der Schülerliste haben die Schüler neue IDs — die Auswahl oben kann alte Vorschläge nicht mehr finden. Diese Funktion löscht <strong>alle</strong> Vorschläge und Votes auf einmal.</p>
+            <button onclick="deleteAllProposals()" class="btn btn-outline-danger w-100 fw-bold">
+              <i class="fa-solid fa-bomb me-2"></i> ALLE Vorschläge &amp; Votes löschen (Reset)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab Content: Tools -->
+      <div class="admin-tab-content" id="tab-tools">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="admin-card" style="background:#1e293b; border:1px solid #06b6d4; border-radius:6px; padding:15px;">
+              <h4 class="card-title text-primary mb-3 d-flex align-items-center" style="font-size:1rem; font-weight:600;">
+                <i class="fa-solid fa-sync me-2"></i> Foto-Synchronisation
+              </h4>
+              <p class="text-muted small mb-3">Synchronisiert alle Schülerfotos aus dem Google Drive Ordner.</p>
+              <button onclick="runPhotoSync()" class="btn btn-primary w-100 fw-bold">
+                <i class="fa-solid fa-sync me-2"></i> Fotos synchronisieren
+              </button>
+              <div id="syncStat" class="mt-3 text-center small fw-bold"></div>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <div class="admin-card" style="background:#1e293b; border:1px solid #06b6d4; border-radius:6px; padding:15px;">
+              <h4 class="card-title text-primary mb-3 d-flex align-items-center" style="font-size:1rem; font-weight:600;">
+                <i class="fa-solid fa-database me-2"></i> Index neu aufbauen
+              </h4>
+              <p class="text-muted small mb-3">Baut die Datenbank-Indizes neu auf. Nur bei Problemen oder nach großen Änderungen nötig.</p>
+              <button onclick="rebuildIndexes()" class="btn btn-outline-info w-100 fw-bold">
+                <i class="fa-solid fa-database me-2"></i> Index aufbauen
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /Tab Content: Tools -->
+
+      <!-- Tab Content: Hilfe -->
+      <div class="admin-tab-content" id="tab-hilfe">
+        <div class="admin-card" style="background:#1e293b; border:1px solid var(--border-dark); border-radius:6px; padding:20px;">
+          <h4 class="card-title" style="color:#fff; margin-bottom:20px; font-weight:600; font-size:1.2rem;">
+            <i class="fa-solid fa-circle-info me-2"></i> Admin-Hilfe: System-Übersicht
+          </h4>
+
+          <!-- Google Sheets Datenbank -->
+          <div class="mb-4">
+            <h5 class="text-primary mb-3" style="font-size:1rem; font-weight:600;">
+              <i class="fa-solid fa-table me-2"></i> Google Sheets Datenbank
+            </h5>
+            <div class="bg-dark rounded p-3 mb-3">
+              <div class="mb-2">
+                <strong class="text-light">Spreadsheet ID:</strong>
+                <code class="ms-2 text-warning">1smxk9EM83KI2xYmqgb0VlGxwQ0tJl70WvirN2Kzbmew</code>
+              </div>
+              <a href="https://docs.google.com/spreadsheets/d/1smxk9EM83KI2xYmqgb0VlGxwQ0tJl70WvirN2Kzbmew" 
+                 target="_blank" class="btn btn-outline-info btn-sm">
+                <i class="fa-solid fa-external-link-alt me-1"></i> Datenbank öffnen
+              </a>
+            </div>
+
+            <h6 class="text-light mb-2" style="font-size:0.9rem;">Verwendete Tabellen (Sheets):</h6>
+            <div class="table-responsive">
+              <table class="table table-sm table-dark table-striped" style="font-size:0.85rem;">
+                <thead>
+                  <tr>
+                    <th>Sheet-Name</th>
+                    <th>Beschreibung</th>
+                    <th>Spalten</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><code class="text-warning">DB_Schueler</code></td>
+                    <td>Schülerdaten</td>
+                    <td><small>ID, Klasse, Nachname, Vorname, Email, PhotoID</small></td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-warning">DB_Bemerkungen</code></td>
+                    <td>Bemerkungsvorlagen</td>
+                    <td><small>ID, Kategorie, Text, Ist_Freitext</small></td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-warning">DB_Vorschlaege</code></td>
+                    <td>Lehrervorschläge</td>
+                    <td><small>ProposalID, SchuelerID, Text, ErstellerEmail, Timestamp</small></td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-warning">DB_Votes</code></td>
+                    <td>Abstimmungen</td>
+                    <td><small>ProposalID, LehrerEmail, VoteWert (1 oder -1)</small></td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-warning">DB_Einstellungen</code></td>
+                    <td>Systemeinstellungen</td>
+                    <td><small>Key, Value (z.B. Phasen, Zeiträume)</small></td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-info">IDX_Klassen</code></td>
+                    <td>Klassen-Index (auto-generiert)</td>
+                    <td><small>Performance-Optimierung für Klassensuche</small></td>
+                  </tr>
+                  <tr>
+                    <td><code class="text-info">IDX_Vorschlaege</code></td>
+                    <td>Vorschlags-Index (auto-generiert)</td>
+                    <td><small>ProposalID, Pos, Neg, VotersPos, VotersNeg</small></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Google Drive Fotos -->
+          <div class="mb-4">
+            <h5 class="text-primary mb-3" style="font-size:1rem; font-weight:600;">
+              <i class="fa-solid fa-images me-2"></i> Schülerfotos (Google Drive)
+            </h5>
+            <div class="bg-dark rounded p-3 mb-3">
+              <div class="mb-2">
+                <strong class="text-light">Foto-Ordner ID:</strong>
+                <code class="ms-2 text-warning">1Ehe7wxbYbysV-Nwe2G8tI2k5tF7LQ_vA</code>
+              </div>
+              <div class="mb-2">
+                <strong class="text-light">Dateiformat:</strong>
+                <code class="ms-2 text-success">{Klasse}_{Vorname}_{Nachname}.jpg</code>
+              </div>
+              <div class="mb-3">
+                <small class="text-muted">
+                  <i class="fa-solid fa-lightbulb me-1"></i>
+                  Das System erkennt automatisch Umlaute (ä→ae, ö→oe, ü→ue, ß→ss) und verschiedene Namensvarianten.
+                </small>
+              </div>
+              <a href="https://drive.google.com/drive/folders/1Ehe7wxbYbysV-Nwe2G8tI2k5tF7LQ_vA" 
+                 target="_blank" class="btn btn-outline-info btn-sm">
+                <i class="fa-solid fa-folder-open me-1"></i> Foto-Ordner öffnen
+              </a>
+            </div>
+          </div>
+
+          <!-- Deployment Info -->
+          <div class="mb-4">
+            <h5 class="text-primary mb-3" style="font-size:1rem; font-weight:600;">
+              <i class="fa-solid fa-code me-2"></i> Apps Script Projekt
+            </h5>
+            <div class="bg-dark rounded p-3 mb-3">
+              <div class="mb-2">
+                <strong class="text-light">Script ID:</strong>
+                <code class="ms-2 text-warning">1nUToeEvqRxEKp62sskxTqxzV4YBdiPU3oVo4Ww6jrt8DI4US3e0nu56u</code>
+              </div>
+              <div class="mb-3">
+                <strong class="text-light">Deployment ID:</strong>
+                <code class="ms-2 text-warning">AKfycbywv6ruHsXcMTM47Ue0daubsAWt-aFe-3a6mnIBit_LvKWUx5qcgwUpTWieSqKlq-OY</code>
+              </div>
+              <a href="https://script.google.com/home/projects/1nUToeEvqRxEKp62sskxTqxzV4YBdiPU3oVo4Ww6jrt8DI4US3e0nu56u/edit" 
+                 target="_blank" class="btn btn-outline-info btn-sm">
+                <i class="fa-solid fa-external-link-alt me-1"></i> Script-Editor öffnen
+              </a>
+            </div>
+          </div>
+
+          <!-- Admin-Aufgaben -->
+          <div class="mb-4">
+            <h5 class="text-primary mb-3" style="font-size:1rem; font-weight:600;">
+              <i class="fa-solid fa-tasks me-2"></i> Wichtige Admin-Aufgaben
+            </h5>
+            <div class="accordion" id="adminHelpAccordion">
+              <div class="accordion-item bg-dark border-secondary">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseImport">
+                    <i class="fa-solid fa-file-import me-2 text-info"></i> Daten importieren
+                  </button>
+                </h2>
+                <div id="collapseImport" class="accordion-collapse collapse" data-bs-parent="#adminHelpAccordion">
+                  <div class="accordion-body bg-dark text-light">
+                    <p><strong>Schülerdaten (CSV):</strong></p>
+                    <ul>
+                      <li>Format: <code>Vorname; Nachname; Klasse</code> (Semikolon-getrennt)</li>
+                      <li>Header-Zeile wird automatisch erkannt</li>
+                      <li>Tab: <strong>Import & Schüler</strong> → Schüler-Import</li>
+                    </ul>
+                    <p><strong>Bemerkungen (TXT):</strong></p>
+                    <ul>
+                      <li>Format: <code>#ID=Text;Kategorie</code></li>
+                      <li>Zeilen ohne # werden ignoriert</li>
+                      <li>Tab: <strong>Import & Schüler</strong> → Bemerkungen-Import</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item bg-dark border-secondary">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePhases">
+                    <i class="fa-solid fa-clock me-2 text-warning"></i> Phasen steuern
+                  </button>
+                </h2>
+                <div id="collapsePhases" class="accordion-collapse collapse" data-bs-parent="#adminHelpAccordion">
+                  <div class="accordion-body bg-dark text-light">
+                    <p><strong>Automatische Phasen:</strong></p>
+                    <ul>
+                      <li>Zeiträume im Format TT.MM.JJJJ - TT.MM.JJJJ eintragen</li>
+                      <li>System wechselt automatisch zwischen Vorschlags- und Abstimmungsphase</li>
+                      <li>Abstimmungsphase hat Vorrang</li>
+                    </ul>
+                    <p><strong>Manuelle Steuerung:</strong></p>
+                    <ul>
+                      <li>Button "Manuell aktivieren" überschreibt automatische Phasen</li>
+                      <li>"Automatik reaktivieren" kehrt zur zeitbasierten Steuerung zurück</li>
+                      <li>Tab: <strong>Zeitplanung</strong></li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item bg-dark border-secondary">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePhotos">
+                    <i class="fa-solid fa-camera me-2 text-success"></i> Fotos synchronisieren
+                  </button>
+                </h2>
+                <div id="collapsePhotos" class="accordion-collapse collapse" data-bs-parent="#adminHelpAccordion">
+                  <div class="accordion-body bg-dark text-light">
+                    <p><strong>Foto-Sync durchführen:</strong></p>
+                    <ol>
+                      <li>Fotos in Google Drive hochladen (Format: Klasse_Vorname_Nachname.jpg)</li>
+                      <li>Tab <strong>Import & Schüler</strong> → Bereich "Foto-Sync"</li>
+                      <li>Button "Fotos synchronisieren" klicken</li>
+                      <li>System ordnet Fotos automatisch Schülern zu</li>
+                    </ol>
+                    <p class="mb-0"><small class="text-muted"><i class="fa-solid fa-info-circle me-1"></i> Nach dem Import neuer Schüler immer Foto-Sync durchführen!</small></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item bg-dark border-secondary">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIndex">
+                    <i class="fa-solid fa-database me-2 text-danger"></i> Index neu aufbauen
+                  </button>
+                </h2>
+                <div id="collapseIndex" class="accordion-collapse collapse" data-bs-parent="#adminHelpAccordion">
+                  <div class="accordion-body bg-dark text-light">
+                    <p><strong>Wann notwendig?</strong></p>
+                    <ul>
+                      <li>Nach großem Datenimport (> 100 Schüler)</li>
+                      <li>Bei Performance-Problemen</li>
+                      <li>Nach manuellen Änderungen in der Datenbank</li>
+                    </ul>
+                    <p><strong>Durchführung:</strong></p>
+                    <ul>
+                      <li>Tab: <strong>Tools</strong> → "Index neu aufbauen"</li>
+                      <li>Vorgang kann mehrere Minuten dauern</li>
+                      <li>Erstellt IDX_Klassen und IDX_Vorschlaege neu</li>
+                    </ul>
+                    <p class="mb-0"><small class="text-danger"><i class="fa-solid fa-exclamation-triangle me-1"></i> Während des Index-Aufbaus nicht parallel arbeiten!</small></p>
+                  </div>
+                </div>
+              </div>
+
+              <div class="accordion-item bg-dark border-secondary">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed bg-dark text-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCache">
+                    <i class="fa-solid fa-sync me-2 text-primary"></i> Cache verwalten
+                  </button>
+                </h2>
+                <div id="collapseCache" class="accordion-collapse collapse" data-bs-parent="#adminHelpAccordion">
+                  <div class="accordion-body bg-dark text-light">
+                    <p><strong>Cache-System:</strong></p>
+                    <ul>
+                      <li>Beschleunigt Datenzugriffe erheblich</li>
+                      <li>Wird automatisch bei Änderungen invalidiert</li>
+                      <li>Zwischenspeicher: Klassenlisten, Schülerdaten, Votes</li>
+                    </ul>
+                    <p><strong>Cache löschen:</strong></p>
+                    <ul>
+                      <li>Tab: <strong>Tools</strong> → "Cache komplett löschen"</li>
+                      <li>Nötig bei: Inkonsistenzen, veralteten Daten, Debugging</li>
+                      <li>Cache baut sich automatisch neu auf</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sicherheit & Zugriff -->
+          <div class="mb-4">
+            <h5 class="text-primary mb-3" style="font-size:1rem; font-weight:600;">
+              <i class="fa-solid fa-shield-alt me-2"></i> Sicherheit & Zugriff
+            </h5>
+            <div class="bg-dark rounded p-3">
+              <ul class="mb-0">
+                <li class="mb-2"><strong>Admin-Passwort:</strong> Gespeichert in Script Properties (nicht in der Datenbank)</li>
+                <li class="mb-2"><strong>Benutzer-Authentifizierung:</strong> Via Google Workspace (Session.getActiveUser())</li>
+                <li class="mb-2"><strong>Zugriffsbeschränkung:</strong> Domain-restricted (siehe appsscript.json)</li>
+                <li class="mb-0"><strong>Logs:</strong> Stackdriver Logging aktiviert (exceptionLogging in appsscript.json)</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Performance-Tipps -->
+          <div>
+            <h5 class="text-primary mb-3" style="font-size:1rem; font-weight:600;">
+              <i class="fa-solid fa-tachometer-alt me-2"></i> Performance-Tipps
+            </h5>
+            <div class="bg-dark rounded p-3">
+              <ul class="mb-0">
+                <li class="mb-2"><i class="fa-solid fa-check-circle text-success me-2"></i> Regelmäßig Cache löschen bei großen Datenmengen</li>
+                <li class="mb-2"><i class="fa-solid fa-check-circle text-success me-2"></i> Index nach Import vieler Schüler neu aufbauen</li>
+                <li class="mb-2"><i class="fa-solid fa-check-circle text-success me-2"></i> Foto-Sync nur durchführen, wenn nötig</li>
+                <li class="mb-2"><i class="fa-solid fa-check-circle text-success me-2"></i> Alte Vorschläge regelmäßig löschen (Tab: Verwaltung)</li>
+                <li class="mb-0"><i class="fa-solid fa-check-circle text-success me-2"></i> Bei Problemen: Execution-Logs im Apps Script Editor prüfen</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- /Tab Content: Hilfe -->
+    `;
+  }
+  
+  // Ende buildAdminHTML - initializeDatePickers wird nach dem Update aufgerufen
+
+
+function parseGermanDate(dateStr) {
+  if (!dateStr) return '';
+  const parts = dateStr.split('.');
+  if (parts.length !== 3) return '';
+  return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+}
+
+function formatToGermanDate(isoDate) {
+  if (!isoDate) return '';
+  const parts = isoDate.split('-');
+  if (parts.length !== 3) return '';
+  return `${parts[2]}.${parts[1]}.${parts[0]}`;
+}
+
+function initializeDatePickers(proposalDesc, votingDesc) {
+  const propMatch = proposalDesc.match(/(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})/);
+  if (propMatch) {
+    const propStart = document.getElementById('propStartDate');
+    const propEnd = document.getElementById('propEndDate');
+    if (propStart) propStart.value = parseGermanDate(propMatch[1]);
+    if (propEnd) propEnd.value = parseGermanDate(propMatch[2]);
+  }
+  
+  const voteMatch = votingDesc.match(/(\d{2}\.\d{2}\.\d{4})\s*-\s*(\d{2}\.\d{2}\.\d{4})/);
+  if (voteMatch) {
+    const voteStart = document.getElementById('voteStartDate');
+    const voteEnd = document.getElementById('voteEndDate');
+    if (voteStart) voteStart.value = parseGermanDate(voteMatch[1]);
+    if (voteEnd) voteEnd.value = parseGermanDate(voteMatch[2]);
+  }
+  
+  const propStart = document.getElementById('propStartDate');
+  const propEnd = document.getElementById('propEndDate');
+  const voteStart = document.getElementById('voteStartDate');
+  const voteEnd = document.getElementById('voteEndDate');
+  
+  function updateProposalText() {
+    const start = propStart ? propStart.value : '';
+    const end = propEnd ? propEnd.value : '';
+    const descProp = document.getElementById('descProp');
+    if (!descProp) return;
+    
+    if (!start && !end) {
+      descProp.value = '';
+      console.log('[updateProposalText] Beide Felder leer - Textfeld geleert');
+      return;
+    }
+    
+    if (start && end) {
+      descProp.value = `${formatToGermanDate(start)} - ${formatToGermanDate(end)}`;
+      console.log('[updateProposalText] Textfeld aktualisiert:', descProp.value);
+    }
+  }
+  
+  function updateVotingText() {
+    const start = voteStart ? voteStart.value : '';
+    const end = voteEnd ? voteEnd.value : '';
+    const descVote = document.getElementById('descVote');
+    if (!descVote) return;
+    
+    if (!start && !end) {
+      descVote.value = '';
+      console.log('[updateVotingText] Beide Felder leer - Textfeld geleert');
+      return;
+    }
+    
+    if (start && end) {
+      descVote.value = `${formatToGermanDate(start)} - ${formatToGermanDate(end)}`;
+      console.log('[updateVotingText] Textfeld aktualisiert:', descVote.value);
+    }
+  }
+  
+  if (propStart) propStart.addEventListener('change', updateProposalText);
+  if (propEnd) propEnd.addEventListener('change', updateProposalText);
+  if (voteStart) voteStart.addEventListener('change', updateVotingText);
+  if (voteEnd) voteEnd.addEventListener('change', updateVotingText);
+}
+
+function switchAdminTab(tabName) {
+  document.querySelectorAll('.admin-tab-content').forEach(tab => {
+    tab.classList.remove('active');
+  });
+  
+  document.querySelectorAll('.admin-tab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  
+  const selectedTab = document.getElementById('tab-' + tabName);
+  if (selectedTab) {
+    selectedTab.classList.add('active');
+  }
+  
+  const selectedBtn = document.querySelector(`.admin-tab-btn[data-tab="${tabName}"]`);
+  if (selectedBtn) {
+    selectedBtn.classList.add('active');
+  }
+}
+
+function saveDescriptions() {
+  const propVal = document.getElementById('descProp').value;
+  const voteVal = document.getElementById('descVote').value;
+  
+  runServer('savePhaseDescriptions', { proposal: propVal, voting: voteVal })
+  .then(res => {
+    if (res && res.success) {
+      showMessage("Erfolg", "Zeiträume wurden gespeichert.", "success");
+    } else {
+      showMessage("Fehler", res && res.message ? res.message : "Unbekannter Fehler", "error");
+    }
+  });
+}
+
+function setPhase(phaseName) {
+  // Client-Cache löschen
+  localStorage.removeItem('classData');
+  localStorage.removeItem('currentClassName');
+  
+  // Spinner-Cursor aktivieren
+  document.body.style.cursor = 'wait';
+  
+  runServer('setAppPhase', phaseName)
+  .then(res => {
+    // Cursor zurücksetzen
+    document.body.style.cursor = 'default';
+    
+    if (res && res.success) {
+      showMessage("Phase geändert", `Phase wurde manuell auf ${phaseName} gesetzt. Die Automatik ist jetzt deaktiviert.`, "success");
+      setTimeout(() => {
+        // Admin-View neu laden
+        renderAdminView(document.getElementById('app-content'));
+        // Falls Teacher-View aktiv ist, auch neu laden
+        if (typeof refreshCurrentClass === 'function') {
+          refreshCurrentClass();
+        }
+      }, 1000);
+    } else {
+      showMessage("Fehler", res && res.message ? res.message : "Unbekannter Fehler", "error");
+    }
+  })
+  .catch(err => {
+    // Cursor auch bei Fehler zurücksetzen
+    document.body.style.cursor = 'default';
+    showMessage("Fehler", "Verbindungsfehler: " + err, "error");
+  });
+}
+
+function enableAutoMode() {
+  Swal.fire({
+    title: 'Automatik reaktivieren?',
+    text: 'Die Phasen wechseln dann automatisch basierend auf den eingetragenen Zeiträumen.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#06b6d4',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ja, Automatik aktivieren',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      // Client-Cache löschen
+      localStorage.removeItem('classData');
+      localStorage.removeItem('currentClassName');
+      
+      // Spinner-Cursor aktivieren
+      document.body.style.cursor = 'wait';
+      
+      runServer('enableAutoMode', null)
+      .then(res => {
+        // Cursor zurücksetzen
+        document.body.style.cursor = 'default';
+        
+        if (res && res.success) {
+          showMessage("Automatik aktiviert", "Die Phasen wechseln jetzt automatisch basierend auf den Zeiträumen.", "success");
+          setTimeout(() => {
+            renderAdminView(document.getElementById('app-content'));
+            // Falls Teacher-View aktiv ist, auch neu laden
+            if (typeof refreshCurrentClass === 'function') {
+              refreshCurrentClass();
+            }
+          }, 1000);
+        } else {
+          showMessage("Fehler", res && res.message ? res.message : "Unbekannter Fehler", "error");
+        }
+      })
+      .catch(err => {
+        // Cursor auch bei Fehler zurücksetzen
+        document.body.style.cursor = 'default';
+        showMessage("Fehler", "Verbindungsfehler: " + err, "error");
+      });
+    }
+  });
+}
+
+function startImport() {
+  const f1 = document.getElementById('f1').files[0];
+  const f2 = document.getElementById('f2').files[0];
+  const stat = document.getElementById('stat');
+  
+  if (!f1 || !f2) {
+    showMessage("Fehler", "Bitte beide Dateien auswählen.", "error");
+    return;
+  }
+  
+  stat.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Importiere...';
+  
+  Promise.all([readFileAsText(f1), readFileAsText(f2)])
+  .then(([csvContent, txtContent]) => {
+    return runServer('importData', { students: csvContent, comments: txtContent });
+  })
+  .then(res => {
+    if (res && res.success) {
+      stat.innerHTML = '<span class="text-success">✅ Erfolgreich!</span>';
+      showMessage("Import", res.message || "Daten importiert.", "success");
+    } else {
+      stat.innerHTML = '<span class="text-danger">❌ Fehler</span>';
+      showMessage("Import Fehler", res && res.message ? res.message : "Unbekannter Fehler", "error");
+    }
+  })
+  .catch(err => {
+    stat.innerHTML = '<span class="text-danger">❌ Fehler</span>';
+    showMessage("Import Fehler", String(err), "error");
+  });
+}
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = (e) => reject(e);
+    reader.readAsText(file);
+  });
+}
+
+function addStudentManually() {
+  const vorname = document.getElementById('newStudentVorname').value.trim();
+  const nachname = document.getElementById('newStudentNachname').value.trim();
+  const klasse = document.getElementById('newStudentKlasse').value.trim();
+  const photoFile = document.getElementById('newStudentPhoto').files[0];
+  const stat = document.getElementById('addStudentStat');
+  
+  if (!vorname || !nachname || !klasse) {
+    showMessage("Fehler", "Bitte alle Pflichtfelder ausfüllen.", "error");
+    return;
+  }
+  
+  stat.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Füge hinzu...';
+  
+  if (photoFile) {
+    readFileAsBase64(photoFile).then(base64Data => {
+      return runServer('addStudent', {
+        vorname: vorname,
+        nachname: nachname,
+        klasse: klasse,
+        photoData: base64Data,
+        photoName: photoFile.name
+      });
+    })
+    .then(handleAddStudentResponse)
+    .catch(err => {
+      stat.innerHTML = '<span class="text-danger">Fehler</span>';
+      showMessage("Fehler", String(err), "error");
+    });
+  } else {
+    runServer('addStudent', {
+      vorname: vorname,
+      nachname: nachname,
+      klasse: klasse
+    })
+    .then(handleAddStudentResponse)
+    .catch(err => {
+      stat.innerHTML = '<span class="text-danger">Fehler</span>';
+      showMessage("Fehler", String(err), "error");
+    });
+  }
+}
+
+function handleAddStudentResponse(res) {
+  const stat = document.getElementById('addStudentStat');
+  if (res && res.success) {
+    stat.innerHTML = '<span class="text-success">✅ Hinzugefügt!</span>';
+    document.getElementById('newStudentVorname').value = '';
+    document.getElementById('newStudentNachname').value = '';
+    document.getElementById('newStudentKlasse').value = '';
+    document.getElementById('newStudentPhoto').value = '';
+    showMessage("Erfolg", res.message || "Schüler hinzugefügt.", "success");
+  } else {
+    stat.innerHTML = '<span class="text-danger">❌ Fehler</span>';
+    showMessage("Fehler", res && res.message ? res.message : "Unbekannter Fehler", "error");
+  }
+}
+
+function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target.result.split(',')[1];
+      resolve(base64);
+    };
+    reader.onerror = (e) => reject(e);
+    reader.readAsDataURL(file);
+  });
+}
+
+let selectedStudentIds = new Set();
+
+function loadStudentsForManagement() {
+  const list = document.getElementById('studentManagementList');
+  list.innerHTML = '<div class="text-center py-4"><div class="spinner-border spinner-border-sm"></div> Lade...</div>';
+
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('Timeout: Server antwortet nicht (>30s). Bitte Seite neu laden und erneut versuchen.')), 30000)
+  );
+
+  Promise.race([runServer('getAllStudents', null), timeout])
+  .then(result => {
+    if (!result || !result.success) {
+      const msg = result && result.message ? result.message : 'Unbekannter Fehler';
+      list.innerHTML = `<div class="text-danger text-center py-4"><i class="fa-solid fa-circle-exclamation me-2"></i>Fehler: ${msg}</div>`;
+      return;
+    }
+    if (!result.students || result.students.length === 0) {
+      list.innerHTML = '<div class="text-center text-muted py-4">Keine Schüler gefunden</div>';
+      return;
+    }
+
+    selectedStudentIds.clear();
+
+    let html = '<div class="d-flex flex-column gap-2">';
+    result.students.forEach(s => {
+      const checkId = `check-${s.id}`;
+      html += `
+        <div class="d-flex align-items-center p-2 rounded border border-secondary bg-dark">
+          <input type="checkbox" class="form-check-input me-3" id="${checkId}"
+                 onchange="toggleStudentSelection('${s.id}')">
+          <label class="form-check-label flex-grow-1 text-light small" for="${checkId}">
+            ${s.klasse} - ${s.nachname}, ${s.vorname}
+          </label>
+        </div>
+      `;
+    });
+    html += '</div>';
+
+    list.innerHTML = html;
+
+    document.getElementById('selectAllBtn').disabled = false;
+    document.getElementById('deselectAllBtn').disabled = false;
+  })
+  .catch(err => {
+    list.innerHTML = `<div class="text-danger text-center py-4"><i class="fa-solid fa-circle-exclamation me-2"></i>${err.message || err}</div>`;
+  });
+}
+
+function toggleStudentSelection(studentId) {
+  const checkbox = document.getElementById('check-' + studentId);
+  if (checkbox && checkbox.checked) {
+    selectedStudentIds.add(studentId);
+  } else {
+    selectedStudentIds.delete(studentId);
+  }
+  
+  document.getElementById('deleteProposalsBtn').disabled = selectedStudentIds.size === 0;
+  document.getElementById('resetVotesBtn').disabled = selectedStudentIds.size === 0;
+}
+
+function selectAllStudents() {
+  document.querySelectorAll('#studentManagementList input[type="checkbox"]').forEach(cb => {
+    cb.checked = true;
+    const id = cb.id.replace('check-', '');
+    selectedStudentIds.add(id);
+  });
+  
+  document.getElementById('deleteProposalsBtn').disabled = false;
+  document.getElementById('resetVotesBtn').disabled = false;
+}
+
+function deselectAllStudents() {
+  document.querySelectorAll('#studentManagementList input[type="checkbox"]').forEach(cb => {
+    cb.checked = false;
+  });
+  selectedStudentIds.clear();
+  
+  document.getElementById('deleteProposalsBtn').disabled = true;
+  document.getElementById('resetVotesBtn').disabled = true;
+}
+
+function deleteProposalsForSelected() {
+  if (selectedStudentIds.size === 0) return;
+  
+  const count = selectedStudentIds.size;
+  const names = Array.from(selectedStudentIds).slice(0, 3).join(', ') + (count > 3 ? '...' : '');
+  
+  Swal.fire({
+    title: 'Bemerkungen löschen?',
+    html: `<p>Alle Bemerkungen von <strong>${count} Schüler${count !== 1 ? 'n' : ''}</strong> werden gelöscht:</p>
+           <p class="text-muted small">${names}</p>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ja, löschen',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const statDiv = document.getElementById('managementStat');
+      statDiv.innerHTML = '<span class="text-info"><i class="fa-solid fa-spinner fa-spin me-2"></i>Lösche...</span>';
+      
+      runServer('deleteProposalsForStudents', Array.from(selectedStudentIds))
+      .then(res => {
+        if (res && res.success) {
+          statDiv.innerHTML = `<span class="text-success"><i class="fa-solid fa-check me-2"></i>${res.message}</span>`;
+          setTimeout(() => loadStudentsForManagement(), 1500);
+        } else {
+          statDiv.innerHTML = `<span class="text-danger"><i class="fa-solid fa-exclamation-triangle me-2"></i>${res.message}</span>`;
+        }
+      })
+      .catch(err => {
+        statDiv.innerHTML = `<span class="text-danger">Fehler: ${err}</span>`;
+      });
+    }
+  });
+}
+
+function resetVotesForSelected() {
+  if (selectedStudentIds.size === 0) return;
+  
+  const count = selectedStudentIds.size;
+  const names = Array.from(selectedStudentIds).slice(0, 3).join(', ') + (count > 3 ? '...' : '');
+  
+  Swal.fire({
+    title: 'Abstimmungen zurücksetzen?',
+    html: `<p>Alle Abstimmungsergebnisse von <strong>${count} Schüler${count !== 1 ? 'n' : ''}</strong> werden gelöscht:</p>
+           <p class="text-muted small">${names}</p>
+           <p class="text-warning mt-3"><i class="fa-solid fa-info-circle me-2"></i>Die Bemerkungen bleiben erhalten, nur die Votes werden entfernt.</p>`,
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#f59e0b',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ja, zurücksetzen',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const statDiv = document.getElementById('managementStat');
+      statDiv.innerHTML = '<span class="text-info"><i class="fa-solid fa-spinner fa-spin me-2"></i>Setze zurück...</span>';
+      
+      runServer('resetVotesForStudents', Array.from(selectedStudentIds))
+      .then(res => {
+        if (res && res.success) {
+          statDiv.innerHTML = `<span class="text-success"><i class="fa-solid fa-check me-2"></i>${res.message}</span>`;
+          setTimeout(() => loadStudentsForManagement(), 1500);
+        } else {
+          statDiv.innerHTML = `<span class="text-danger"><i class="fa-solid fa-exclamation-triangle me-2"></i>${res.message}</span>`;
+        }
+      })
+      .catch(err => {
+        statDiv.innerHTML = `<span class="text-danger">Fehler: ${err}</span>`;
+      });
+    }
+  });
+}
+
+function deleteAllProposals() {
+  Swal.fire({
+    title: 'ALLE Vorschläge löschen?',
+    html: '<p>Diese Aktion löscht <strong>sämtliche</strong> Vorschläge und Votes aller Schüler unwiderruflich.</p><p class="text-warning mt-2">Nur sinnvoll nach einem Neu-Import oder zum Saisonstart.</p>',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#ef4444',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ja, alles löschen',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      const statDiv = document.getElementById('managementStat');
+      statDiv.innerHTML = '<span class="text-info"><i class="fa-solid fa-spinner fa-spin me-2"></i>Lösche alle Vorschläge...</span>';
+      runServer('deleteAllProposals', null)
+      .then(res => {
+        if (res && res.success) {
+          // localStorage-Cache leeren (ProposalsCore speichert unter "class_cache_*")
+          try {
+            Object.keys(localStorage)
+              .filter(k => k.startsWith('class_cache_'))
+              .forEach(k => localStorage.removeItem(k));
+          } catch (e) {}
+          statDiv.innerHTML = `<span class="text-success"><i class="fa-solid fa-check me-2"></i>${res.message} Browser-Cache geleert.</span>`;
+        } else {
+          statDiv.innerHTML = `<span class="text-danger"><i class="fa-solid fa-exclamation-triangle me-2"></i>${res && res.message ? res.message : 'Fehler'}</span>`;
+        }
+      })
+      .catch(err => {
+        statDiv.innerHTML = `<span class="text-danger">Fehler: ${err}</span>`;
+      });
+    }
+  });
+}
+
+function runPhotoSync() {
+  const stat = document.getElementById('syncStat');
+  if (stat) stat.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Suche Fotos...';
+
+  runServer('syncPhotosToDatabase', null)
+  .then(res => {
+    if (res && res.success) {
+      if (stat) stat.innerHTML = '<span class="text-success">✅ ' + (res.message || "OK") + '</span>';
+      showMessage("Sync erfolgreich", res.message || "OK", "success");
+    } else {
+      if (stat) stat.innerHTML = '<span class="text-danger">❌ Fehler</span>';
+      showMessage("Sync Fehler", (res && res.message) ? res.message : "Unbekannter Fehler", "error");
+    }
+  })
+  .catch(err => {
+    if (stat) stat.innerHTML = '<span class="text-danger">❌ Fehler</span>';
+    showMessage("Sync Fehler", String(err), "error");
+  });
+}
+
+function rebuildIndexes() {
+  Swal.fire({
+    title: 'Index neu aufbauen?',
+    text: 'Dies kann einige Minuten dauern.',
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#06b6d4',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: 'Ja, aufbauen',
+    cancelButtonText: 'Abbrechen',
+    background: '#1e293b',
+    color: '#f1f5f9'
+  }).then((result) => {
+    if (result.isConfirmed) {
+      runServer('rebuildIndexes', null)
+      .then(res => {
+        if (res && res.success) {
+          showMessage("Erfolg", "Index wurde neu aufgebaut.", "success");
+        } else {
+          showMessage("Fehler", res && res.message ? res.message : "Unbekannter Fehler", "error");
+        }
+      })
+      .catch(err => {
+        showMessage("Fehler", String(err), "error");
+      });
+    }
+  });
+}
+</script>
+
+
+
+  </body>
+</html>

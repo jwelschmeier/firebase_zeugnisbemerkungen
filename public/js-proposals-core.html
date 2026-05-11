@@ -1,0 +1,232 @@
+<script>
+// ProposalsCore: minimal shared core for proposals persistence and merges
+const ProposalsCore = (function(){
+  function safeParse(raw, fallback){ try{ return raw ? JSON.parse(raw) : fallback; }catch(e){ return fallback; } }
+
+  function getProposals(className, studentId){
+    try{
+      if(!className || !studentId) return [];
+      const list = (globalData && globalData.studentsByClass && globalData.studentsByClass[className]) ? globalData.studentsByClass[className] : [];
+      const stu = list.find(s=>String(s.id)===String(studentId));
+      return (stu && Array.isArray(stu.proposals)) ? stu.proposals.slice() : [];
+    }catch(e){ return []; }
+  }
+
+  function removeMatchingOptimistic(className, studentId, serverProposals){
+    try{ if(typeof window.ProposalsModule !== 'undefined' && typeof ProposalsModule.removeMatchingOptimistic === 'function') return ProposalsModule.removeMatchingOptimistic(className, studentId, serverProposals); }catch(e){ console.error('[PC] removeMatchingOptimistic failed', e); }
+  }
+
+  function persistCache(currentClass){
+    try{
+      if(!currentClass) return;
+      const cacheKey = `class_cache_${encodeURIComponent(currentClass)}`;
+      let parsed = null;
+      try{ const cached = localStorage.getItem(cacheKey); parsed = cached ? JSON.parse(cached) : { className: currentClass, classVersion: null, students: [], phase: globalData.phase || '', phaseDescription: globalData.phaseDescription || '' }; }catch(e){ parsed = { className: currentClass, classVersion: null, students: [], phase: globalData.phase || '', phaseDescription: globalData.phaseDescription || '' }; }
+      const studentsForCache = (globalData && globalData.studentsByClass && globalData.studentsByClass[currentClass]) ? globalData.studentsByClass[currentClass] : [];
+      const mergedForCache = (typeof window.ProposalsModule === 'object' && typeof window.ProposalsModule.mergeOptimisticStudents === 'function') ? window.ProposalsModule.mergeOptimisticStudents(currentClass, studentsForCache) : studentsForCache;
+      parsed.students = mergedForCache;
+      parsed.className = currentClass;
+      parsed.phase = globalData && globalData.phase ? globalData.phase : parsed.phase;
+      parsed.phaseDescription = globalData && globalData.phaseDescription ? globalData.phaseDescription : parsed.phaseDescription;
+      localStorage.setItem(cacheKey, JSON.stringify(parsed));
+    }catch(e){ console.error('[PC] persistCache failed', e); }
+  }
+
+  function confirmServerMap(map){
+    try{
+      if(!map || typeof map !== 'object') return;
+      Object.keys(map).forEach(sid=>{
+        try{
+          const props = map[sid] || [];
+          const cls = (globalData && globalData.studentsByClass) ? (Object.keys(globalData.studentsByClass).find(c=> (globalData.studentsByClass[c]||[]).find(s=>String(s.id)===String(sid))) || null) : null;
+          if(cls && globalData && globalData.studentsByClass && globalData.studentsByClass[cls]){
+            const stu = globalData.studentsByClass[cls].find(s=>String(s.id)===String(sid));
+            if(stu){
+              const existing = Array.isArray(stu.proposals) ? stu.proposals : [];
+              const existingIds = new Set(existing.map(p=>String(p.id)));
+              props.forEach(newProp=>{ if(!existingIds.has(String(newProp.id))){ existing.push(newProp); } });
+              stu.proposals = existing;
+            }
+          }
+        }catch(e){}
+      });
+    }catch(e){ console.error('[PC] confirmServerMap failed', e); }
+  }
+
+  function getState(){ try{ return { studentsByClass: (globalData && globalData.studentsByClass) ? globalData.studentsByClass : {} }; }catch(e){ return { studentsByClass: {} }; } }
+
+  return {
+    getProposals,
+    removeMatchingOptimistic,
+    persistCache,
+    confirmServerMap,
+    getState
+  };
+})();
+
+try{ window.ProposalsCore = ProposalsCore; console.debug('[PC] ProposalsCore exposed on window'); }catch(e){}
+</script>
+<script>
+// ProposalsCore: zentrale Proposal-Stateverwaltung
+// - Single source of truth für Proposal-State (in-memory + localStorage)
+// - Saubere API: list, addOptimistic, confirmServerMap, deleteProposal, persist/load cache
+// - Events: subscribe(callback) -> callback(changeType, payload)
+
+(function(){
+  const CACHE_PREFIX = 'class_cache_';
+  const state = {
+    studentsByClass: {}, // { className: [{ id, vorname, proposals: [...] }, ...] }
+    optimistic: {}, // { className: { studentId: [proposal, ...] } }
+    subscribers: new Set(),
+  };
+
+  function notify(type, payload){
+    state.subscribers.forEach(cb=>{ try{ cb(type, payload); }catch(e){ console.error('subscriber error', e); } });
+  }
+
+  function loadCache(className){
+    try{
+      const key = CACHE_PREFIX + encodeURIComponent(className);
+      const raw = localStorage.getItem(key);
+      if(!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed;
+    }catch(e){ return null; }
+  }
+
+  function persistCache(className){
+    try{
+      const key = CACHE_PREFIX + encodeURIComponent(className);
+      const students = (state.studentsByClass[className] || []).map(s=>({ ...s, proposals: Array.isArray(s.proposals)? s.proposals : [] }));
+      const toStore = { className: className, classVersion: null, students: students, phase: (window.globalData && globalData.phase) || '' };
+      localStorage.setItem(key, JSON.stringify(toStore));
+      return true;
+    }catch(e){ console.error('[ProposalsCore] persistCache failed', e); return false; }
+  }
+
+  function setStudentsForClass(className, students){
+    state.studentsByClass[className] = (students||[]).map(s=>({ ...(s||{}), proposals: Array.isArray(s.proposals)? s.proposals.slice(): [] }));
+    notify('studentsUpdated', { className });
+  }
+
+  function mergeServerMap(map){
+    // map: { studentId: [proposal] }
+    Object.keys(map||{}).forEach(sid=>{
+      const serverProps = Array.isArray(map[sid])? map[sid].slice() : [];
+      // Find class for this student
+      const cls = findClassForStudent(sid);
+      if(!cls) return; // unknown student in our view
+      const students = state.studentsByClass[cls] || [];
+      const stu = students.find(s=>String(s.id) === String(sid));
+      if(!stu) return;
+      const existing = Array.isArray(stu.proposals)? stu.proposals.slice() : [];
+      const existingIds = new Set(existing.map(p=>String(p.id)));
+      serverProps.forEach(p=>{ if(!existingIds.has(String(p.id))){ existing.push(p); } });
+      stu.proposals = existing;
+      // After merging remove matching optimistic entries
+      removeMatchingOptimistic(cls, sid, stu.proposals);
+      notify('studentProposalsUpdated', { className: cls, studentId: sid });
+    });
+  }
+
+  function findClassForStudent(studentId){
+    const classes = Object.keys(state.studentsByClass||{});
+    for(let i=0;i<classes.length;i++){
+      const cls = classes[i];
+      const list = state.studentsByClass[cls]||[];
+      if(list.find(s=>String(s.id) === String(studentId))) return cls;
+    }
+    return null;
+  }
+
+  function getProposals(className, studentId){
+    const students = state.studentsByClass[className] || [];
+    const stu = students.find(s=>String(s.id) === String(studentId));
+    const serverList = stu && Array.isArray(stu.proposals) ? stu.proposals.slice() : [];
+    const optimistic = (state.optimistic[className] && state.optimistic[className][studentId]) || [];
+    const normalized = new Set((serverList||[]).map(p=>String((p.text||'').trim().toLowerCase())));
+    const filteredOpt = (optimistic||[]).filter(o=> !normalized.has(String((o.text||'').trim().toLowerCase())));
+    return [].concat(serverList, filteredOpt);
+  }
+
+  function addOptimistic(className, studentId, proposal){
+    state.optimistic[className] = state.optimistic[className] || {};
+    state.optimistic[className][studentId] = state.optimistic[className][studentId] || [];
+    state.optimistic[className][studentId].push(proposal);
+    notify('optimisticAdded', { className, studentId, proposal });
+    persistCache(className);
+  }
+
+  function removeMatchingOptimistic(className, studentId, serverProposals){
+    if(!state.optimistic[className] || !state.optimistic[className][studentId]) return;
+    const serverMap = new Set((serverProposals||[]).map(p=>String((p.text||'').trim().toLowerCase()) + ':::' + String((p.creator||'').toLowerCase())));
+    const keep = [];
+    state.optimistic[className][studentId].forEach(opt=>{
+      const key = String((opt.text||'').trim().toLowerCase()) + ':::' + String((opt.creator||'').toLowerCase());
+      if(!(serverMap.has(key) && String(opt.id||'').startsWith('temp-'))){ keep.push(opt); }
+    });
+    state.optimistic[className][studentId] = keep;
+    if(state.optimistic[className][studentId].length===0) delete state.optimistic[className][studentId];
+    if(Object.keys(state.optimistic[className]||{}).length===0) delete state.optimistic[className];
+    notify('optimisticPruned', { className, studentId });
+    persistCache(className);
+  }
+
+  function confirmServerMap(map){
+    mergeServerMap(map);
+    // persist merged view
+    Object.keys(state.studentsByClass||{}).forEach(cls=> persistCache(cls));
+    notify('serverConfirmed', { map });
+  }
+
+  function deleteProposal(proposalId){
+    // delete both from optimistic and server lists in memory
+    // If proposalId starts with temp- -> just remove from optimistic
+    if(String(proposalId||'').startsWith('temp-')){
+      Object.keys(state.optimistic||{}).forEach(cls => {
+        Object.keys(state.optimistic[cls]||{}).forEach(sid => {
+          state.optimistic[cls][sid] = state.optimistic[cls][sid].filter(p=> String(p.id)!==String(proposalId));
+          if(state.optimistic[cls][sid].length===0) delete state.optimistic[cls][sid];
+        });
+        if(Object.keys(state.optimistic[cls]||{}).length===0) delete state.optimistic[cls];
+      });
+      notify('deleted', { proposalId });
+      return Promise.resolve({ success: true, local:true });
+    }
+
+    // Otherwise perform server-side delete (caller should call TeacherController.deleteProposal)
+    return new Promise((resolve, reject)=>{
+      try{
+        google.script.run.withSuccessHandler(function(newData){
+          // merge server response if provided
+          if(newData && newData.proposalsByStudent) confirmServerMap(newData.proposalsByStudent);
+          notify('deleted', { proposalId, server:true });
+          resolve(newData || { success:true });
+        }).withFailureHandler(function(err){
+          console.error('[ProposalsCore] deleteProposal server error', err);
+          reject(err);
+        }).deleteProposal(proposalId);
+      }catch(e){ reject(e); }
+    });
+  }
+
+  function subscribe(cb){ state.subscribers.add(cb); return ()=> state.subscribers.delete(cb); }
+  function getState(){ return state; }
+
+  // Expose API
+  window.ProposalsCore = {
+    loadCache,
+    persistCache,
+    setStudentsForClass,
+    getProposals,
+    addOptimistic,
+    removeMatchingOptimistic,
+    confirmServerMap,
+    deleteProposal,
+    subscribe,
+    getState
+  };
+
+  console.debug('[ProposalsCore] initialized');
+})();
+</script>
