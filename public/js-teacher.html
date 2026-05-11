@@ -540,6 +540,9 @@ function refreshProposalsInBackground(className) {
 }
 
 function renderStudentList(className) {
+  // Sicherstellen, dass Kommentare geladen sind, bevor gerendert wird (für die Nummern im Dropdown)
+  loadCommentsDict();
+
   const listArea = document.getElementById('student-list-area');
   // Prefer ProposalsCore state if available
   let cached = null;
@@ -908,11 +911,11 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
 
       <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
          <li><h6 class="dropdown-header">Textbaustein wählen</h6></li>
-         ${typeof globalComments !== "undefined" && Array.isArray(globalComments)
+         ${(typeof globalComments !== "undefined" && Array.isArray(globalComments) && globalComments.length > 0)
             ? globalComments.map(c =>
                 `<li><a class="dropdown-item small" href="#" onclick="applyComment('${uniqueInputId}', '${c.id}'); return false;"><span class="text-primary fw-bold">${c.num ? '#' + c.num + ' ' : ''}[${c.category}]</span> ${c.text}</a></li>`
               ).join('')
-            : ''
+            : '<li><span class="dropdown-item disabled text-muted">Lade Bausteine...</span></li>'
          }
       </ul>
     </div>
