@@ -39,4 +39,4 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_ZEUGNISBEMERKUNGEN_FSR }}
 
       - name: Deploy hosting, functions, and Firestore config
-        run: npx firebase-tools@latest deploy --project zeugnisbemerkungen-fsr --only hosting,functions,firestore:rules,firestore:indexes --non-interactive
+        run: npx firebase-tools@latest deploy --project zeugnisbemerkungen-fsr --only hosting,functions,firestore:rules,firestore:indexes --non-interactive --force
