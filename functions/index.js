@@ -3,11 +3,14 @@ const cors = require('cors');
 const express = require('express');
 const { google } = require('googleapis');
 const { onRequest } = require('firebase-functions/v2/https');
+const { AsyncLocalStorage } = require('async_hooks');
 
 admin.initializeApp();
 
 const db = admin.firestore();
 const app = express();
+const authContext = new AsyncLocalStorage();
+const ALLOWED_EMAIL_DOMAIN = 'realschule-hoevelhof.de';
 
 app.use(cors({ origin: true }));
 app.use(express.json({ limit: '10mb' }));
@@ -33,6 +36,45 @@ function normalizeKey(value) {
 
 function normalizeHeader(value) {
   return normalizeText(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function currentAuth() {
+  return authContext.getStore() || {};
+}
+
+function currentUserEmail() {
+  return normalizeText(currentAuth().email).toLowerCase();
+}
+
+function isAllowedEmail(email) {
+  return normalizeText(email).toLowerCase().endsWith(`@${ALLOWED_EMAIL_DOMAIN}`);
+}
+
+async function verifyRequestAuth(req) {
+  const match = String(req.get('authorization') || '').match(/^Bearer\s+(.+)$/i);
+  if (!match) {
+    const error = new Error('Anmeldung erforderlich.');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  let decoded;
+  try {
+    decoded = await admin.auth().verifyIdToken(match[1]);
+  } catch (err) {
+    const error = new Error('Anmeldung ungueltig oder abgelaufen.');
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const email = normalizeText(decoded.email).toLowerCase();
+  if (!decoded.email_verified || !isAllowedEmail(email)) {
+    const error = new Error(`Zugriff nur fuer verifizierte @${ALLOWED_EMAIL_DOMAIN}-Konten.`);
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return { uid: decoded.uid, email };
 }
 
 function drivePhotoUrl(photoId, size = 150) {
@@ -432,14 +474,14 @@ async function getTeacherSummary() {
     phase,
     phaseDescription: phase === 'VOTING' ? desc.voting : desc.proposal,
     classNames,
-    userEmail: ''
+    userEmail: currentUserEmail()
   };
 }
 
 async function getStudentsForClass(className) {
   const phase = await getAppPhase();
   const desc = await getPhaseDescriptions();
-  const students = await attachProposals(await getStudentsByClass(className), phase, '');
+  const students = await attachProposals(await getStudentsByClass(className), phase, currentUserEmail());
   return {
     success: true,
     phase,
@@ -500,7 +542,7 @@ async function saveProposalsV2(input) {
       studentId: String(proposal.studentId),
       className: normalizeText(proposal.className || proposal.klasse),
       text: normalizeText(proposal.text),
-      creator: normalizeText(proposal.creator || proposal.creatorEmail || ''),
+      creator: currentUserEmail(),
       clientKey: normalizeText(proposal.clientKey || ''),
       deleted: false,
       createdAt: now,
@@ -564,7 +606,7 @@ async function deleteProposal(proposalId) {
 async function castVote(input, maybeValue) {
   const proposalId = typeof input === 'object' && input !== null ? input.proposalId : input;
   const value = typeof input === 'object' && input !== null ? input.value : maybeValue;
-  const teacherEmail = normalizeText((typeof input === 'object' && input !== null ? input.teacherEmail : '') || 'anonymous');
+  const teacherEmail = currentUserEmail();
   const rawValue = Number(value);
   const voteId = `${proposalId}_${teacherEmail.replace(/[^\w.-]/g, '_')}`;
   if (rawValue === 0) {
@@ -770,6 +812,7 @@ app.get(['/health', '/api/health'], (_req, res) => {
 
 app.post(['/call', '/api/call'], async (req, res) => {
   try {
+    const auth = await verifyRequestAuth(req);
     const functionName = String(req.body.functionName || '');
     const args = Array.isArray(req.body.args) ? req.body.args : [];
     const handler = handlers[functionName];
@@ -777,11 +820,11 @@ app.post(['/call', '/api/call'], async (req, res) => {
       res.status(404).json({ error: `Unbekannte Funktion: ${functionName}` });
       return;
     }
-    const result = await handler(...args);
+    const result = await authContext.run(auth, () => handler(...args));
     res.json({ result });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: error.message || String(error) });
+    res.status(error.statusCode || 500).json({ error: error.message || String(error) });
   }
 });
 

@@ -18,12 +18,6 @@ var pendingDeletions = new Set();
 var STUDENT_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjOTRhM2I4IiBzdHJva2Utd2lkdGg9IjEuNSI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTYgMjF2LTJhNCA0IDAgMCAxIDQtNGg0YTQgNCAwIDAgMSA0IDR2MiIvPjwvc3ZnPg==';
 var loadedPhotos = new Map();
 
-// *** PRELOAD: Admin-Daten beim App-Start cachen (vor dem Login!) ***
-// Wird sofort aufgerufen - asynchron, blockiert nicht!
-runServer('getAdminInitData', null).catch(err => {
-  console.log('Admin preload nicht kritisch:', err);
-});
-
 // Hilfsfunktion: Text sicher für HTML konvertieren
 function escapeHtml(input) {
   if (input === null || input === undefined) return '';
@@ -38,8 +32,18 @@ function escapeHtml(input) {
 // --- INITIALISIERUNG ---
 document.addEventListener('DOMContentLoaded', function() {
   console.log("App gestartet");
-  // Standard-View laden
-  switchView('teacher');
+  const startApp = function(user) {
+    if (!user) return;
+    runServer('getAdminInitData', null).catch(err => {
+      console.log('Admin preload nicht kritisch:', err);
+    });
+    switchView('teacher');
+  };
+  if (typeof window.onAuthStateReady === 'function') {
+    window.onAuthStateReady(startApp);
+  } else {
+    startApp(null);
+  }
   // Kommentare werden erst geladen, wenn sie benötigt werden (lazy loading)
 });
 

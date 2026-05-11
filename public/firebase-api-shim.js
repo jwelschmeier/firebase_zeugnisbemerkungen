@@ -1,9 +1,18 @@
 (function () {
   function callFunction(functionName, args) {
-    return fetch('/api/call', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ functionName: functionName, args: args || [] })
+    var tokenPromise = window.getFirebaseAuthToken
+      ? window.getFirebaseAuthToken()
+      : Promise.reject(new Error('Firebase Auth ist nicht initialisiert.'));
+
+    return tokenPromise.then(function (token) {
+      return fetch('/api/call', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify({ functionName: functionName, args: args || [] })
+      });
     }).then(function (response) {
       return response.json().then(function (payload) {
         if (!response.ok || payload.error) {

@@ -11,7 +11,14 @@ html = html.replace('<base target="_top">\n', '');
 html = html.replace("<?!= include('style'); ?>", include('style'));
 html = html.replace(
   "<?!= include('js-core'); ?>",
-  '<script src="/firebase-api-shim.js"></script>\n' + include('js-core')
+  [
+    '<script defer src="https://www.gstatic.com/firebasejs/10.12.4/firebase-app-compat.js"></script>',
+    '<script defer src="https://www.gstatic.com/firebasejs/10.12.4/firebase-auth-compat.js"></script>',
+    '<script defer src="/__/firebase/init.js"></script>',
+    '<script defer src="/firebase-auth-gate.js"></script>',
+    '<script src="/firebase-api-shim.js"></script>',
+    include('js-core')
+  ].join('\n')
 );
 
 for (const name of ['js-proposals-core', 'js-proposals', 'js-teacher', 'js-admin']) {
