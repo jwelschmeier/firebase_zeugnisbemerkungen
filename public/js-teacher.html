@@ -54,7 +54,7 @@ function mergeServerStudents(className, serverStudents) {
 
   const existing = globalData.studentsByClass[className] || null;
   
-  if (!existing) {
+  if (!existing || existing.length === 0) {
     // No existing data: clone server students
     const cloned = (serverStudents || []).map(s => ({ 
       ...(s || {}), 
@@ -191,6 +191,14 @@ function buildTeacherInterface(container, classNames, phase, phaseDescription) {
     });
   }
 
+  if (phase === 'PROPOSAL' && typeof loadCommentsDict === 'function') {
+    loadCommentsDict().then(() => {
+      const currentSelect = document.getElementById('class-select');
+      const currentClass = currentSelect ? currentSelect.value : '';
+      if (currentClass) renderStudentList(currentClass);
+    }).catch(err => console.error('Failed to load comments:', err));
+  }
+
   // Subscribe to ProposalsCore updates so UI updates when core state changes
   try{
     if(window.ProposalsCore && ProposalsCore.subscribe){
@@ -225,7 +233,7 @@ function renderStudentListLazy(className) {
   classRequestToken[className] = token;
 
   // 1. Prüfen, ob Daten bereits im Frontend-Cache sind
-  if (globalData.studentsByClass && globalData.studentsByClass[className]) {
+  if (globalData.studentsByClass && Array.isArray(globalData.studentsByClass[className]) && globalData.studentsByClass[className].length > 0) {
     renderStudentList(className);
     // Proposals trotzdem im Hintergrund aktualisieren
     refreshProposalsInBackground(className);
@@ -238,6 +246,7 @@ function renderStudentListLazy(className) {
   let cacheWasUsed = false;
   try {
     const cacheKey = 'class_cache_' + encodeURIComponent(className);
+    localStorage.removeItem(cacheKey);
     const cached = localStorage.getItem(cacheKey);
     if (cached) {
       try {

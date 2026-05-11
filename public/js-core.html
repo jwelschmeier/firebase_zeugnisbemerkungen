@@ -9,6 +9,7 @@ let globalSearchDebounce = null;
 let globalSearchRequestId = 0;
 let classRequestToken = {};
 let pendingStudentFetch = {};
+let commentsLoadingPromise = null;
 
 // Weitere globale Variablen für Teacher-Modul
 var pendingStudentFocus = null;
@@ -42,10 +43,28 @@ document.addEventListener('DOMContentLoaded', function() {
   // Kommentare werden erst geladen, wenn sie benötigt werden (lazy loading)
 });
 
+function normalizeCommentsList(data) {
+  return (Array.isArray(data) ? data : []).map(c => {
+    const category = c.category || c.kategorie || c.Kategorie || 'Allgemein';
+    return { ...c, category, kategorie: category };
+  });
+}
+
 function loadCommentsDict() {
   // Nur laden, wenn noch nicht geladen
-  if (globalComments && globalComments.length > 0) return;
-  google.script.run.withSuccessHandler(d => globalComments = d).getAvailableComments();
+  if (globalComments && globalComments.length > 0) return Promise.resolve(globalComments);
+  if (commentsLoadingPromise) return commentsLoadingPromise;
+  commentsLoadingPromise = runServer('getAvailableComments', null)
+    .then(d => {
+      globalComments = normalizeCommentsList(d);
+      commentsLoadingPromise = null;
+      return globalComments;
+    })
+    .catch(err => {
+      commentsLoadingPromise = null;
+      throw err;
+    });
+  return commentsLoadingPromise;
 }
 
 // --- HELPER: MODERN MESSAGE MODAL ---

@@ -264,11 +264,13 @@ async function saveCommentsToDb(rows) {
     const requestedId = normalizeText(row[0]).replace(/^#/, '');
     const doc = requestedId ? db.collection(COLLECTIONS.comments).doc(requestedId) : db.collection(COLLECTIONS.comments).doc();
     const text = normalizeText(row[2]);
+    const category = normalizeText(row[1]) || 'Allgemein';
     if (!text) continue;
     batch.set(doc, {
       id: doc.id,
       legacyId: normalizeText(row[0]),
-      kategorie: normalizeText(row[1]) || 'Allgemein',
+      kategorie: category,
+      category,
       text,
       istFreitext: row[3] === true || String(row[3]).toLowerCase() === 'true',
       updatedAt: now
@@ -591,8 +593,12 @@ async function castVote(input, maybeValue) {
 async function getAvailableComments() {
   const snap = await db.collection(COLLECTIONS.comments).get();
   return snap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
-    .sort((a, b) => `${a.kategorie || ''} ${a.text || ''}`.localeCompare(`${b.kategorie || ''} ${b.text || ''}`));
+    .map((doc) => {
+      const data = doc.data() || {};
+      const category = data.category || data.kategorie || 'Allgemein';
+      return { id: doc.id, ...data, category, kategorie: category };
+    })
+    .sort((a, b) => `${a.category || ''} ${a.text || ''}`.localeCompare(`${b.category || ''} ${b.text || ''}`));
 }
 
 async function getAllStudents() {
