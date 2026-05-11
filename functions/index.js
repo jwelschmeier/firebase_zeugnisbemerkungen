@@ -565,11 +565,11 @@ const handlers = {
   verifyAdminPassword
 };
 
-app.get('/health', (_req, res) => {
+app.get(['/health', '/api/health'], (_req, res) => {
   res.json({ ok: true, project: 'zeugnisbemerkungen-fsr' });
 });
 
-app.post('/call', async (req, res) => {
+app.post(['/call', '/api/call'], async (req, res) => {
   try {
     const functionName = String(req.body.functionName || '');
     const args = Array.isArray(req.body.args) ? req.body.args : [];
