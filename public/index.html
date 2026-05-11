@@ -569,8 +569,12 @@ function escapeHtml(input) {
 // --- INITIALISIERUNG ---
 document.addEventListener('DOMContentLoaded', function() {
   console.log("App gestartet");
+  var _appRunning = false;
+
   const startApp = function(user) {
-    if (!user) return;
+    if (!user) { _appRunning = false; return; }
+    if (_appRunning) return;
+    _appRunning = true;
     const authBar = document.getElementById('auth-bar');
     const authEmail = document.getElementById('auth-user-email');
     if (authBar) authBar.style.display = 'flex';
@@ -580,10 +584,19 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     switchView('teacher');
   };
+
   if (typeof window.onAuthStateReady === 'function') {
     window.onAuthStateReady(startApp);
   } else {
     startApp(null);
+  }
+
+  // Fallback: direktes Firebase-Abo, damit startApp auch nach Popup-Login
+  // aufgerufen wird, wenn onAuthStateReady-Callbacks bereits geleert wurden.
+  if (typeof firebase !== 'undefined' && firebase.auth) {
+    firebase.auth().onAuthStateChanged(function(user) {
+      startApp(user || null);
+    });
   }
   // Kommentare werden erst geladen, wenn sie benötigt werden (lazy loading)
 });
