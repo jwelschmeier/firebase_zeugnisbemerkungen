@@ -988,15 +988,23 @@ function saveProposalInline(inputElement, event) {
     return;
   }
 
+  const studentId = inputElement.dataset.studentid;
+  const firstName = inputElement.dataset.firstname || '';
+  inputElement.dataset.skipBlurSave = '1';
   autoSaveProposal(inputElement);
-  inputElement.value = '';
-  showFloatingComments(inputElement);
-  updateFloatingComments(inputElement);
-  inputElement.focus();
+
+  // Nach dem Speichern sofort eine zweite Zeile bereitstellen.
+  addInputLine(studentId, firstName);
 }
 
 function handleInputBlur(inputElement) {
   hideFloatingCommentsDelayed(inputElement);
+
+  if (inputElement && inputElement.dataset && inputElement.dataset.skipBlurSave === '1') {
+    delete inputElement.dataset.skipBlurSave;
+    return;
+  }
+
   autoSaveProposal(inputElement);
 }
 
