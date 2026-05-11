@@ -604,7 +604,58 @@ document.addEventListener('DOMContentLoaded', function() {
 function normalizeCommentsList(data) {
   return (Array.isArray(data) ? data : []).map(c => {
     const category = c.category || c.kategorie || c.Kategorie || 'Allgemein';
-    return { ...c, category, kategorie: category };
+    let num = c.num || null;
+    if (!num && c.text) {
+      const text = c.text.toLowerCase().replace(/\s+/g, ' ');
+      if (text.includes("konzentrieren")) num = "001";
+      else if (text.includes("sorgfältig erledigen") || text.includes("sorgfältig zu erledigen")) num = "002";
+      else if (text.includes("lernerfolg")) num = "003";
+      else if (text.includes("teamarbeit")) num = "004";
+      else if (text.includes("mappenführung einhalten")) num = "008";
+      else if (text.match(/hausaufgaben.*sorgfältig/)) num = "009";
+      else if (text.includes("leserliche schreibweise")) num = "010";
+      else if (text.includes("materialien mit zum unterricht")) num = "011";
+      else if (text.includes("schulordnung")) num = "012";
+      else if (text.includes("klasseregeln") || text.includes("teamregeln")) num = "013";
+      else if (text.includes("respektvoll") && text.includes("friedlich")) num = "014";
+      else if (text.includes("konflikte aushalten")) num = "015";
+      else if (text.includes("geforderte maß hinaus")) num = "017";
+      else if (text.includes("konzentriert und aktiv")) num = "018";
+      else if (text.includes("kreative ideen")) num = "019";
+      else if (text.includes("mappenführung ist vorbildlich")) num = "020";
+      else if (text.includes("mitschülern") && text.includes("helfen")) num = "021";
+      else if (text.includes("konstruktive lösungen in konflikten")) num = "022";
+      else if (text.includes("problemlösungen zu finden")) num = "024";
+      else if (text.includes("mitarbeit") && text.includes("aufmerksamkeit")) num = "025";
+      else if (text.includes("packen der schultasche")) num = "050";
+      else if (text.includes("anfertigen der hausaufgaben")) num = "051";
+      else if (text.includes("freiwillig aufgaben")) num = "101";
+      else if (text.includes("klassensprecher")) num = "102";
+      else if (text.includes("sv mitgearbeitet")) num = "103";
+      else if (text.includes("tanz-ag")) num = "104";
+      else if (text.includes("musikanlage betreut")) num = "105";
+      else if (text.includes("gitarren-ag")) num = "106";
+      else if (text.includes("spielzeugausleihe")) num = "110";
+      else if (text.includes("streitschlichter")) num = "111";
+      else if (text.includes("pünktlich zum unterricht")) num = "201";
+      else if (text.includes("schriftlichen verweis")) num = "202";
+      else if (text.includes("erprobungsstufe")) num = "203";
+      else if (text.includes("teilkonferenz stattgefunden")) num = "204";
+      else if (text.includes("hauptschule") || text.includes("gesamtschule")) num = "205";
+      else if (text.includes("wiederholung der jahrgangsstufe 6")) num = "206";
+      else if (text.includes("nicht benotet werden") || text.includes("nicht benotet werden konnte")) num = "207";
+      else if (text.includes("schülerbetriebspraktikum absolviert")) num = "208";
+      else if (text.includes("berufsorientierungsunterricht teilgenommen")) {
+         if (text.includes("besonderem engagement")) num = "211";
+         else if (text.includes("mit engagement")) num = "210";
+         else num = "209";
+      }
+      else if (text.includes("delf") && text.includes("a1")) num = "213";
+      else if (text.includes("delf") && text.includes("a2")) num = "214";
+      else if (text.includes("überweisungszeugnis")) num = "215";
+      else if (text.includes("praktikumshefter")) num = "241";
+    }
+    return { ...c, category, kategorie: category, num };
   });
 }
 
@@ -1669,20 +1720,26 @@ function renderTeacherView(container) {
   container.innerHTML =
     '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Lade Daten...</p></div>';
 
-  // Lade nur die Klassennamen und Phaseninfos (leichtgewichtig)
-  google.script.run
-    .withSuccessHandler(data => {
-      if (!data || data.success === false) {
-        container.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
-        return;
-      }
-      globalData = data;
-      buildTeacherInterface(container, data.classNames, data.phase, data.phaseDescription);
+  // Kommentare zuerst laden, damit Nummern im Dropdown sofort vorhanden sind.
+  loadCommentsDict()
+    .catch(err => {
+      console.error('Initial comments load failed:', err);
     })
-    .withFailureHandler(err => {
-      container.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
-    })
-    .getTeacherSummary();
+    .finally(() => {
+      google.script.run
+        .withSuccessHandler(data => {
+          if (!data || data.success === false) {
+            container.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
+            return;
+          }
+          globalData = data;
+          buildTeacherInterface(container, data.classNames, data.phase, data.phaseDescription);
+        })
+        .withFailureHandler(err => {
+          container.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
+        })
+        .getTeacherSummary();
+    });
 }
 
 // Neue Funktion: Interface mit Dropdown sofort anzeigen
@@ -2437,7 +2494,7 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
              autocomplete="off"
              onblur="autoSaveProposal(this)"
              onkeydown="if(event.key === 'Enter') { this.blur(); }"
-             oninput="clearFieldError(this)">
+              oninput="handleInput(this)">
 
       <button id="${btnId}" class="input-status-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
          <i class="fa-solid fa-chevron-down"></i>
@@ -2445,11 +2502,11 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
 
       <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end">
          <li><h6 class="dropdown-header">Textbaustein wählen</h6></li>
-         ${typeof globalComments !== "undefined" && Array.isArray(globalComments)
+         ${(typeof globalComments !== "undefined" && Array.isArray(globalComments) && globalComments.length > 0)
             ? globalComments.map(c =>
-                `<li><a class="dropdown-item small" href="#" onclick="applyComment('${uniqueInputId}', '${c.id}'); return false;"><span class="text-primary fw-bold">[${c.category}]</span> ${c.text}</a></li>`
+                `<li><a class="dropdown-item small" href="#" onclick="applyComment('${uniqueInputId}', '${c.id}'); return false;"><span class="text-primary fw-bold">${c.num ? '#' + c.num + ' ' : ''}[${c.category}]</span> ${c.text}</a></li>`
               ).join('')
-            : ''
+            : '<li><span class="dropdown-item disabled text-muted">Lade Bausteine...</span></li>'
          }
       </ul>
     </div>
@@ -2474,6 +2531,22 @@ function showFieldError(inputElement, message) {
     if (errEl) { errEl.innerText = message; errEl.classList.remove('hidden'); }
     inputElement.focus();
   } catch (e) { console.error(e); }
+}
+
+function handleInput(inputElement) {
+  clearFieldError(inputElement);
+
+  const val = inputElement.value.trim();
+  if (val.startsWith('#') || /^\d+$/.test(val)) {
+    const num = val.startsWith('#') ? val.substring(1) : val;
+    if (num && typeof globalComments !== "undefined" && Array.isArray(globalComments)) {
+      const comment = globalComments.find(c => String(c.num) === String(num));
+      if (comment) {
+        applyComment(inputElement.id, comment.id);
+        setTimeout(() => inputElement.blur(), 100);
+      }
+    }
+  }
 }
 
 function clearFieldError(inputElement) {
