@@ -412,42 +412,6 @@
     }
     .input-status-icon:hover { color: var(--text-light); }
 
-    /* Schwebende Nummern-/Textsuche unter dem Eingabefeld */
-    .floating-comment-panel {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: calc(100% + 4px);
-      z-index: 35;
-      background: #0b1220;
-      border: 1px solid var(--border-dark);
-      border-radius: 8px;
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
-      max-height: 260px;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-    .floating-comment-panel.hidden { display: none; }
-    .floating-comment-item {
-      display: block;
-      width: 100%;
-      text-align: left;
-      background: transparent;
-      border: none;
-      color: var(--text-light);
-      padding: 8px 10px;
-      font-size: 12px;
-      line-height: 1.35;
-      cursor: pointer;
-    }
-    .floating-comment-item:hover { background: rgba(148, 163, 184, 0.16); }
-    .floating-comment-num {
-      color: var(--primary-accent);
-      font-weight: 700;
-      margin-right: 6px;
-      white-space: nowrap;
-    }
-    
     /* --- DATE INPUT STYLES --- */
     input[type="date"] {
         cursor: pointer;
