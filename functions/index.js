@@ -29,6 +29,20 @@ function normalizeKey(value) {
   return normalizeText(value).toLowerCase();
 }
 
+function normalizeHeader(value) {
+  return normalizeText(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function drivePhotoUrl(photoId, size = 150) {
+  const id = normalizeText(photoId);
+  return id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=${size}` : '';
+}
+
+function firestoreDocId(value) {
+  const id = normalizeText(value);
+  return id && !id.includes('/') ? id : '';
+}
+
 function parseCsv(content, delimiter) {
   const rows = [];
   let row = [];
@@ -157,38 +171,50 @@ async function deleteCollection(collectionName) {
 
 async function saveStudentsToDb(rows) {
   await deleteCollection(COLLECTIONS.students);
-  const batch = db.batch();
+  let batch = db.batch();
+  let opCount = 0;
   const now = admin.firestore.FieldValue.serverTimestamp();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const klasse = normalizeText(row[0]);
     const nachname = normalizeText(row[1]);
     const vorname = normalizeText(row[2]);
-    if (!klasse || !nachname || !vorname) return;
-    const doc = db.collection(COLLECTIONS.students).doc();
+    if (!klasse || !nachname || !vorname) continue;
+    const requestedId = firestoreDocId(row[5]);
+    const photoId = normalizeText(row[4]);
+    const photoUrl = normalizeText(row[6]) || drivePhotoUrl(photoId);
+    const doc = requestedId ? db.collection(COLLECTIONS.students).doc(requestedId) : db.collection(COLLECTIONS.students).doc();
     batch.set(doc, {
       id: doc.id,
       klasse,
       nachname,
       vorname,
       email: normalizeText(row[3]),
-      photoId: normalizeText(row[4]),
+      photoId,
+      photoUrl,
       search: normalizeKey(`${klasse} ${nachname} ${vorname}`),
       createdAt: now,
       updatedAt: now
     });
-  });
-  await batch.commit();
+    opCount += 1;
+    if (opCount >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      opCount = 0;
+    }
+  }
+  if (opCount > 0) await batch.commit();
 }
 
 async function saveCommentsToDb(rows) {
   await deleteCollection(COLLECTIONS.comments);
-  const batch = db.batch();
+  let batch = db.batch();
+  let opCount = 0;
   const now = admin.firestore.FieldValue.serverTimestamp();
-  rows.forEach((row) => {
+  for (const row of rows) {
     const requestedId = normalizeText(row[0]).replace(/^#/, '');
     const doc = requestedId ? db.collection(COLLECTIONS.comments).doc(requestedId) : db.collection(COLLECTIONS.comments).doc();
     const text = normalizeText(row[2]);
-    if (!text) return;
+    if (!text) continue;
     batch.set(doc, {
       id: doc.id,
       legacyId: normalizeText(row[0]),
@@ -197,18 +223,48 @@ async function saveCommentsToDb(rows) {
       istFreitext: row[3] === true || String(row[3]).toLowerCase() === 'true',
       updatedAt: now
     });
-  });
-  await batch.commit();
+    opCount += 1;
+    if (opCount >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      opCount = 0;
+    }
+  }
+  if (opCount > 0) await batch.commit();
 }
 
 async function importStudentsCSV(csvContent) {
   const firstLine = String(csvContent || '').split('\n')[0] || '';
   const delimiter = firstLine.includes(';') ? ';' : ',';
   const rows = parseCsv(csvContent, delimiter);
-  const startIndex = rows[0] && rows[0].join('').toLowerCase().includes('vorname') ? 1 : 0;
+  const header = rows[0] || [];
+  const headerMap = {};
+  header.forEach((name, index) => { headerMap[normalizeHeader(name)] = index; });
+  const hasNamedColumns = headerMap.vorname !== undefined && headerMap.nachname !== undefined && headerMap.klasse !== undefined;
+  const startIndex = hasNamedColumns ? 1 : 0;
+
+  const get = (row, name, fallbackIndex) => {
+    const index = headerMap[name] !== undefined ? headerMap[name] : fallbackIndex;
+    return row[index];
+  };
+
   const cleaned = rows.slice(startIndex)
-    .filter((row) => row && row.length >= 3 && normalizeText(row[0]))
-    .map((row) => [row[2], row[1], row[0]]);
+    .filter((row) => row && row.length >= 3)
+    .map((row) => {
+      if (hasNamedColumns) {
+        return [
+          get(row, 'klasse', 2),
+          get(row, 'nachname', 1),
+          get(row, 'vorname', 0),
+          get(row, 'email', 4),
+          get(row, 'photoid', 5),
+          get(row, 'id', 0),
+          get(row, 'photourl', 6)
+        ];
+      }
+      return [row[2], row[1], row[0], row[3], row[4], '', row[5]];
+    })
+    .filter((row) => normalizeText(row[0]) && normalizeText(row[1]) && normalizeText(row[2]));
 
   await saveStudentsToDb(cleaned);
   return { success: true, message: `${cleaned.length} Schueler importiert.` };
@@ -240,7 +296,10 @@ async function importData(payload) {
 
 async function getStudentsByClass(className) {
   const snap = await db.collection(COLLECTIONS.students).where('klasse', '==', className).orderBy('nachname').orderBy('vorname').get();
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data(), proposals: [] }));
+  return snap.docs.map((doc) => {
+    const data = doc.data();
+    return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId), proposals: [] };
+  });
 }
 
 async function getProposalVoteMaps(proposalIds, userEmail) {
@@ -359,7 +418,10 @@ async function searchStudentsAcrossClasses(query, limit = 20) {
   if (!q) return { success: true, results: [], limited: false, totalMatches: 0 };
   const snap = await db.collection(COLLECTIONS.students).limit(1000).get();
   const matches = snap.docs
-    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .map((doc) => {
+      const data = doc.data();
+      return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId, 120) };
+    })
     .filter((student) => normalizeKey(`${student.klasse} ${student.nachname} ${student.vorname}`).includes(q))
     .sort((a, b) => `${a.klasse} ${a.nachname}`.localeCompare(`${b.klasse} ${b.nachname}`));
   const max = Number(limit) || 20;
@@ -479,7 +541,13 @@ async function getAvailableComments() {
 
 async function getAllStudents() {
   const snap = await db.collection(COLLECTIONS.students).orderBy('klasse').orderBy('nachname').orderBy('vorname').get();
-  return { success: true, students: snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })) };
+  return {
+    success: true,
+    students: snap.docs.map((doc) => {
+      const data = doc.data();
+      return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId) };
+    })
+  };
 }
 
 async function deleteAllProposals() {
@@ -516,11 +584,37 @@ async function resetVotesForStudents(studentIds) {
 }
 
 async function loadStudentPhotos(students) {
-  return Array.isArray(students) ? students.map((student) => ({ ...student, photoUrl: '' })) : [];
+  const photos = {};
+  (Array.isArray(students) ? students : []).forEach((student) => {
+    if (!student || !student.id) return;
+    const url = normalizeText(student.photoUrl) || drivePhotoUrl(student.photoId, student.photoSize || 300);
+    if (url) photos[student.id] = url;
+  });
+  return { success: true, photos };
 }
 
 async function syncPhotosToDatabase() {
-  return { success: true, message: 'Foto-Sync ist in der Firebase-Version noch nicht angebunden.' };
+  const snap = await db.collection(COLLECTIONS.students).get();
+  let batch = db.batch();
+  let opCount = 0;
+  let updates = 0;
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (!data.photoId || data.photoUrl) continue;
+    batch.set(doc.ref, {
+      photoUrl: drivePhotoUrl(data.photoId),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    opCount += 1;
+    updates += 1;
+    if (opCount >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      opCount = 0;
+    }
+  }
+  if (opCount > 0) await batch.commit();
+  return { success: true, message: `Foto-Sync fertig. ${updates} Foto-URLs aus PhotoID erzeugt.` };
 }
 
 async function rebuildIndexes() {
