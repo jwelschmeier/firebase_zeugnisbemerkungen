@@ -992,6 +992,7 @@ function saveProposalInline(inputElement, event) {
   const firstName = inputElement.dataset.firstname || '';
   inputElement.dataset.skipBlurSave = '1';
   autoSaveProposal(inputElement);
+  inputElement.value = '';
 
   // Nach dem Speichern sofort eine zweite Zeile bereitstellen.
   addInputLine(studentId, firstName);
@@ -1005,7 +1006,20 @@ function handleInputBlur(inputElement) {
     return;
   }
 
+  const text = String((inputElement && inputElement.value) || '').trim();
+  if (!text) return;
+
+  const validation = (typeof validateProposalText === 'function')
+    ? validateProposalText(text)
+    : { valid: true };
+  if (!validation.valid) return;
+
   autoSaveProposal(inputElement);
+  inputElement.value = '';
+
+  const studentId = inputElement.dataset.studentid;
+  const firstName = inputElement.dataset.firstname || '';
+  addInputLine(studentId, firstName);
 }
 
 function showFloatingComments(inputElement) {
