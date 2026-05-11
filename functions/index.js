@@ -345,11 +345,11 @@ async function importData(payload) {
 }
 
 async function getStudentsByClass(className) {
-  const snap = await db.collection(COLLECTIONS.students).where('klasse', '==', className).orderBy('nachname').orderBy('vorname').get();
+  const snap = await db.collection(COLLECTIONS.students).where('klasse', '==', className).get();
   return snap.docs.map((doc) => {
     const data = doc.data();
     return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId), proposals: [] };
-  });
+  }).sort((a, b) => `${a.nachname || ''} ${a.vorname || ''}`.localeCompare(`${b.nachname || ''} ${b.vorname || ''}`));
 }
 
 async function getProposalVoteMaps(proposalIds, userEmail) {
@@ -387,8 +387,12 @@ async function attachProposals(students, phase, userEmail) {
 
   for (let i = 0; i < ids.length; i += 30) {
     const chunk = ids.slice(i, i + 30);
-    const snap = await db.collection(COLLECTIONS.proposals).where('studentId', 'in', chunk).where('deleted', '==', false).get();
-    snap.docs.forEach((doc) => proposals.push({ id: doc.id, ...doc.data() }));
+    const snap = await db.collection(COLLECTIONS.proposals).where('studentId', 'in', chunk).get();
+    snap.docs.forEach((doc) => {
+      const data = doc.data();
+      if (data.deleted === true || String(data.deleted).toLowerCase() === 'true') return;
+      proposals.push({ id: doc.id, ...data });
+    });
   }
 
   const { voteCounts, myVotes } = phase === 'VOTING'
@@ -585,18 +589,20 @@ async function castVote(input, maybeValue) {
 }
 
 async function getAvailableComments() {
-  const snap = await db.collection(COLLECTIONS.comments).orderBy('kategorie').orderBy('text').get();
-  return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  const snap = await db.collection(COLLECTIONS.comments).get();
+  return snap.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() }))
+    .sort((a, b) => `${a.kategorie || ''} ${a.text || ''}`.localeCompare(`${b.kategorie || ''} ${b.text || ''}`));
 }
 
 async function getAllStudents() {
-  const snap = await db.collection(COLLECTIONS.students).orderBy('klasse').orderBy('nachname').orderBy('vorname').get();
+  const snap = await db.collection(COLLECTIONS.students).get();
   return {
     success: true,
     students: snap.docs.map((doc) => {
       const data = doc.data();
       return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId) };
-    })
+    }).sort((a, b) => `${a.klasse || ''} ${a.nachname || ''} ${a.vorname || ''}`.localeCompare(`${b.klasse || ''} ${b.nachname || ''} ${b.vorname || ''}`))
   };
 }
 
