@@ -2543,7 +2543,7 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
              autocomplete="off"
              onfocus="showFloatingComments(this)"
              onblur="handleInputBlur(this)"
-             onkeydown="if(event.key === 'Enter') { this.blur(); }"
+              onkeydown="if(event.key === 'Enter') { saveProposalInline(this, event); }"
               oninput="handleInput(this)">
 
       <button id="${btnId}" class="input-status-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -2600,6 +2600,31 @@ function handleInput(inputElement) {
       }
     }
   }
+}
+
+function saveProposalInline(inputElement, event) {
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+  if (!inputElement) return;
+
+  const text = String(inputElement.value || '').trim();
+  if (!text) return;
+
+  const validation = (typeof validateProposalText === 'function')
+    ? validateProposalText(text)
+    : { valid: true };
+  if (!validation.valid) {
+    if (typeof showFieldError === 'function') showFieldError(inputElement, validation.message || 'Ungültige Eingabe');
+    return;
+  }
+
+  autoSaveProposal(inputElement);
+  inputElement.value = '';
+  showFloatingComments(inputElement);
+  updateFloatingComments(inputElement);
+  inputElement.focus();
 }
 
 function handleInputBlur(inputElement) {
@@ -2686,7 +2711,7 @@ function updateFloatingComments(inputElement) {
     return String(a.c.text || '').localeCompare(String(b.c.text || ''));
   });
 
-  const top = scored.slice(0, 12).map(({ c }) => {
+  const top = scored.map(({ c }) => {
     const numLabel = c.num ? `#${c.num}` : '#---';
     return `<button type="button" class="floating-comment-item" onmousedown="applyFloatingComment('${inputElement.id}', '${c.id}'); return false;"><span class="floating-comment-num">${numLabel} [${c.category}]</span>${c.text || ''}</button>`;
   });
