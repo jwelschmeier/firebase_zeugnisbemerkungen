@@ -899,7 +899,8 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
              autocomplete="off"
              onblur="autoSaveProposal(this)"
              onkeydown="if(event.key === 'Enter') { this.blur(); }"
-             oninput="clearFieldError(this)">
+             oninput="handleInput(this)"
+             onkeydown="if(event.key === 'Enter') { this.blur(); }">
 
       <button id="${btnId}" class="input-status-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false">
          <i class="fa-solid fa-chevron-down"></i>
@@ -909,7 +910,7 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
          <li><h6 class="dropdown-header">Textbaustein wählen</h6></li>
          ${typeof globalComments !== "undefined" && Array.isArray(globalComments)
             ? globalComments.map(c =>
-                `<li><a class="dropdown-item small" href="#" onclick="applyComment('${uniqueInputId}', '${c.id}'); return false;"><span class="text-primary fw-bold">[${c.category}]</span> ${c.text}</a></li>`
+                `<li><a class="dropdown-item small" href="#" onclick="applyComment('${uniqueInputId}', '${c.id}'); return false;"><span class="text-primary fw-bold">${c.num ? '#' + c.num + ' ' : ''}[${c.category}]</span> ${c.text}</a></li>`
               ).join('')
             : ''
          }
@@ -936,6 +937,24 @@ function showFieldError(inputElement, message) {
     if (errEl) { errEl.innerText = message; errEl.classList.remove('hidden'); }
     inputElement.focus();
   } catch (e) { console.error(e); }
+}
+
+function handleInput(inputElement) {
+  clearFieldError(inputElement);
+  
+  const val = inputElement.value.trim();
+  // Wenn Eingabe mit # beginnt oder nur eine Zahl ist (ab 1 Zeichen)
+  if (val.startsWith('#') || /^\d+$/.test(val)) {
+    const num = val.startsWith('#') ? val.substring(1) : val;
+    if (num && typeof globalComments !== "undefined") {
+      const comment = globalComments.find(c => String(c.num) === String(num));
+      if (comment) {
+        applyComment(inputElement.id, comment.id);
+        // Optional: Kurze Verzögerung vor dem Blur, damit man sieht was passiert ist
+        setTimeout(() => inputElement.blur(), 100);
+      }
+    }
+  }
 }
 
 function clearFieldError(inputElement) {

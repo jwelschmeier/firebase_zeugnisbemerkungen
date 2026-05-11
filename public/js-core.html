@@ -54,7 +54,58 @@ document.addEventListener('DOMContentLoaded', function() {
 function normalizeCommentsList(data) {
   return (Array.isArray(data) ? data : []).map(c => {
     const category = c.category || c.kategorie || c.Kategorie || 'Allgemein';
-    return { ...c, category, kategorie: category };
+    // Extrahiere Nummer aus ID oder Text, falls vorhanden (Mapping basierend auf TXT)
+    let num = c.num || null;
+    if (!num && c.text) {
+      // Versuche Nummer aus bekannten Mustern zu mappen (beispielhaft für die ersten paar)
+      const text = c.text.toLowerCase();
+      if (text.includes("konzentrieren")) num = "001";
+      else if (text.includes("sorgfältig erledigen")) num = "002";
+      else if (text.includes("verantwortung für den eigenen lernerfolg")) num = "003";
+      else if (text.includes("produktiver in die teamarbeit")) num = "004";
+      else if (text.includes("heft- und mappenführung einhalten")) num = "008";
+      else if (text.includes("hausaufgaben sorgfältig")) num = "009";
+      else if (text.includes("leserliche schreibweise")) num = "010";
+      else if (text.includes("materialien mit zum unterricht")) num = "011";
+      else if (text.includes("regeln der schulordnung")) num = "012";
+      else if (text.includes("klassen - und teamregeln")) num = "013";
+      else if (text.includes("respektvoll, friedlich und fair")) num = "014";
+      else if (text.includes("konflikte aushalten")) num = "015";
+      else if (text.includes("über das geforderte maß hinaus")) num = "017";
+      else if (text.includes("äußerst konzentriert und aktiv")) num = "018";
+      else if (text.includes("kreative ideen")) num = "019";
+      else if (text.includes("mappenführung ist vorbildlich")) num = "020";
+      else if (text.includes("mitschülern/-innen zu helfen")) num = "021";
+      else if (text.includes("konstruktive lösungen in konflikten")) num = "022";
+      else if (text.includes("problemlösungen zu finden")) num = "024";
+      else if (text.includes("mitarbeit, aufmerksamkeit, interesse und ausdauer")) num = "025";
+      else if (text.includes("packen der schultasche")) num = "050";
+      else if (text.includes("unterstützung beim anfertigen der hausaufgaben")) num = "051";
+      else if (text.includes("freiwillig aufgaben")) num = "101";
+      else if (text.includes("klassensprecher")) num = "102";
+      else if (text.includes("sv mitgearbeitet")) num = "103";
+      else if (text.includes("tanz-ag")) num = "104";
+      else if (text.includes("musikanlage betreut")) num = "105";
+      else if (text.includes("gitarren-ag")) num = "106";
+      else if (text.includes("spielzeugausleihe")) num = "110";
+      else if (text.includes("streitschlichter")) num = "111";
+      else if (text.includes("pünktlich zum unterricht")) num = "201";
+      else if (text.includes("schriftlichen verweis")) num = "202";
+      else if (text.includes("erprobungsstufe")) num = "203";
+      else if (text.includes("teilkonferenz stattgefunden")) num = "204";
+      else if (text.includes("hauptschule / gesamtschule")) num = "205";
+      else if (text.includes("wiederholung der jahrgangsstufe 6")) num = "206";
+      else if (text.includes("fehlzeiten an unserer schule nicht benotet")) num = "207";
+      else if (text.includes("3-wöchiges schülerbetriebspraktikum absolviert")) num = "208";
+      else if (text.includes("berufsorientierungsunterricht teilgenommen")) num = "209";
+      else if (text.includes("berufsorientierungsunterricht mit engagement teilgenommen")) num = "210";
+      else if (text.includes("berufsorientierungsunterricht mit besonderem engagement teilgenommen")) num = "211";
+      else if (text.includes("delf") && text.includes("a1")) num = "213";
+      else if (text.includes("delf") && text.includes("a2")) num = "214";
+      else if (text.includes("überweisungszeugnis")) num = "215";
+      else if (text.includes("praktikumshefter")) num = "241";
+    }
+    return { ...c, category, kategorie: category, num };
   });
 }
 
