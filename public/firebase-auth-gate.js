@@ -20,6 +20,13 @@
   function setNavVisible(visible) {
     var navWrap = document.querySelector('.nav.nav-pills');
     if (navWrap) navWrap.style.display = visible ? '' : 'none';
+    var authBar = document.getElementById('auth-bar');
+    if (authBar) authBar.style.display = visible ? 'flex' : 'none';
+  }
+
+  function setAuthEmail(email) {
+    var emailEl = document.getElementById('auth-user-email');
+    if (emailEl) emailEl.textContent = email || '';
   }
 
   function renderLogin(message) {
@@ -85,10 +92,12 @@
     initialAuthResolved = true;
     if (user && isAllowedUser(user)) {
       currentUser = user;
+      setAuthEmail(email);
       setNavVisible(true);
       readyCallbacks.splice(0).forEach(function (callback) { callback(currentUser); });
     } else {
       currentUser = null;
+      setAuthEmail('');
       if (user) {
         firebase.auth().signOut().finally(function () { renderDenied(email); });
       } else {
