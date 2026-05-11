@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function normalizeCommentsList(data) {
-  return (Array.isArray(data) ? data : []).map(c => {
+  const normalized = (Array.isArray(data) ? data : []).map(c => {
     const category = c.category || c.kategorie || c.Kategorie || 'Allgemein';
     let num = c.num || null;
     if (!num && c.text) {
@@ -107,6 +107,8 @@ function normalizeCommentsList(data) {
     }
     return { ...c, category, kategorie: category, num };
   });
+  console.log('Normalized comments with nums:', normalized.filter(c => c.num));
+  return normalized;
 }
 
 function loadCommentsDict() {
