@@ -1,6 +1,7 @@
 const admin = require('firebase-admin');
 const cors = require('cors');
 const express = require('express');
+const { google } = require('googleapis');
 const { onRequest } = require('firebase-functions/v2/https');
 
 admin.initializeApp();
@@ -13,6 +14,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const DEFAULT_PROPOSAL_DESC = 'Beispiel: 12.01.2026 - 18.01.2026';
 const DEFAULT_VOTING_DESC = 'Beispiel: 19.01.2026 - 23.01.2026';
+const PHOTO_FOLDER_ID = '1Ehe7wxbYbysV-Nwe2G8tI2k5tF7LQ_vA';
 const COLLECTIONS = {
   students: 'students',
   comments: 'comments',
@@ -41,6 +43,54 @@ function drivePhotoUrl(photoId, size = 150) {
 function firestoreDocId(value) {
   const id = normalizeText(value);
   return id && !id.includes('/') ? id : '';
+}
+
+function replaceUmlauts(value) {
+  return String(value || '')
+    .replace(/Ä/g, 'Ae').replace(/ä/g, 'ae')
+    .replace(/Ö/g, 'Oe').replace(/ö/g, 'oe')
+    .replace(/Ü/g, 'Ue').replace(/ü/g, 'ue')
+    .replace(/ß/g, 'ss');
+}
+
+function buildPhotoFileNameCandidates(klasse, vorname, nachname) {
+  if (!klasse || !vorname || !nachname) return [];
+
+  const classMatch = String(klasse).trim().match(/^0?(\d+)/);
+  const classNum = classMatch ? parseInt(classMatch[1], 10) : 5;
+  const today = new Date();
+  const schoolStartYear = today.getMonth() + 1 >= 8 ? today.getFullYear() : today.getFullYear() - 1;
+  const gradYear = (schoolStartYear + 11) - classNum;
+  const firstName = replaceUmlauts(vorname).trim();
+  const lastName = replaceUmlauts(nachname).trim();
+
+  if (firstName.length < 3 || lastName.length < 3) return [];
+  const baseName = `${firstName.substring(0, 3)}${lastName.substring(0, 3)}`.toLowerCase() + gradYear;
+  return [`${baseName}.jpg`, `${baseName}.jpeg`, `${baseName}.png`, `${baseName}.JPG`];
+}
+
+async function listDriveFolderFiles(folderId) {
+  const auth = new google.auth.GoogleAuth({
+    scopes: ['https://www.googleapis.com/auth/drive.readonly']
+  });
+  const drive = google.drive({ version: 'v3', auth });
+  const files = [];
+  let pageToken;
+
+  do {
+    const response = await drive.files.list({
+      q: `'${folderId}' in parents and trashed = false`,
+      fields: 'nextPageToken, files(id, name, mimeType)',
+      pageSize: 1000,
+      pageToken,
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true
+    });
+    files.push(...(response.data.files || []));
+    pageToken = response.data.nextPageToken;
+  } while (pageToken);
+
+  return files;
 }
 
 function parseCsv(content, delimiter) {
@@ -594,15 +644,55 @@ async function loadStudentPhotos(students) {
 }
 
 async function syncPhotosToDatabase() {
+  let driveFiles;
+  try {
+    driveFiles = await listDriveFolderFiles(PHOTO_FOLDER_ID);
+  } catch (error) {
+    return {
+      success: false,
+      message: 'Foto-Ordner konnte nicht gelesen werden. Bitte Drive API aktivieren und den Ordner mit dem GitHub/Firebase Service Account teilen. Details: ' + (error.message || String(error))
+    };
+  }
+
+  const fileMap = new Map();
+  driveFiles.forEach((file) => {
+    const name = normalizeText(file.name).toLowerCase();
+    if (name) fileMap.set(name, file.id);
+  });
+
   const snap = await db.collection(COLLECTIONS.students).get();
   let batch = db.batch();
   let opCount = 0;
   let updates = 0;
+  let alreadyLinked = 0;
+  let missing = 0;
   for (const doc of snap.docs) {
     const data = doc.data();
-    if (!data.photoId || data.photoUrl) continue;
+    let photoId = normalizeText(data.photoId);
+    if (!photoId) {
+      const candidates = buildPhotoFileNameCandidates(data.klasse, data.vorname, data.nachname);
+      for (const candidate of candidates) {
+        if (fileMap.has(candidate.toLowerCase())) {
+          photoId = fileMap.get(candidate.toLowerCase());
+          break;
+        }
+      }
+    }
+
+    if (!photoId) {
+      missing += 1;
+      continue;
+    }
+
+    const photoUrl = drivePhotoUrl(photoId);
+    if (data.photoId === photoId && data.photoUrl === photoUrl) {
+      alreadyLinked += 1;
+      continue;
+    }
+
     batch.set(doc.ref, {
-      photoUrl: drivePhotoUrl(data.photoId),
+      photoId,
+      photoUrl,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     opCount += 1;
@@ -614,7 +704,10 @@ async function syncPhotosToDatabase() {
     }
   }
   if (opCount > 0) await batch.commit();
-  return { success: true, message: `Foto-Sync fertig. ${updates} Foto-URLs aus PhotoID erzeugt.` };
+  return {
+    success: true,
+    message: `Foto-Sync fertig. ${updates} Fotos neu verknuepft, ${alreadyLinked} bereits verknuepft, ${missing} ohne Treffer.`
+  };
 }
 
 async function rebuildIndexes() {
