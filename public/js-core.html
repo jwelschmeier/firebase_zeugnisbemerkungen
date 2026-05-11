@@ -107,8 +107,19 @@ function normalizeCommentsList(data) {
     }
     return { ...c, category, kategorie: category, num };
   });
-  console.log('Normalized comments with nums:', normalized.filter(c => c.num));
-  return normalized;
+  const sorted = normalized.sort((a, b) => {
+    const aHasNum = !!a.num;
+    const bHasNum = !!b.num;
+    if (aHasNum && bHasNum) {
+      const aNum = parseInt(a.num, 10);
+      const bNum = parseInt(b.num, 10);
+      if (aNum !== bNum) return aNum - bNum;
+    }
+    if (aHasNum !== bHasNum) return aHasNum ? -1 : 1;
+    return `${a.category || ''} ${a.text || ''}`.localeCompare(`${b.category || ''} ${b.text || ''}`);
+  });
+  console.log('Normalized comments with nums:', sorted.filter(c => c.num));
+  return sorted;
 }
 
 function loadCommentsDict() {

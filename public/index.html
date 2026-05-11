@@ -656,6 +656,16 @@ function normalizeCommentsList(data) {
       else if (text.includes("praktikumshefter")) num = "241";
     }
     return { ...c, category, kategorie: category, num };
+  }).sort((a, b) => {
+    const aHasNum = !!a.num;
+    const bHasNum = !!b.num;
+    if (aHasNum && bHasNum) {
+      const aNum = parseInt(a.num, 10);
+      const bNum = parseInt(b.num, 10);
+      if (aNum !== bNum) return aNum - bNum;
+    }
+    if (aHasNum !== bHasNum) return aHasNum ? -1 : 1;
+    return `${a.category || ''} ${a.text || ''}`.localeCompare(`${b.category || ''} ${b.text || ''}`);
   });
 }
 
