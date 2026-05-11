@@ -115,13 +115,18 @@ function loadCommentsDict() {
   // Nur laden, wenn noch nicht geladen
   if (globalComments && globalComments.length > 0) return Promise.resolve(globalComments);
   if (commentsLoadingPromise) return commentsLoadingPromise;
+  
+  console.log('[DBG] loadCommentsDict starting...');
   commentsLoadingPromise = runServer('getAvailableComments', null)
     .then(d => {
+      console.log('[DBG] getAvailableComments returned:', d ? d.length : 0, 'items');
       globalComments = normalizeCommentsList(d);
+      console.log('[DBG] globalComments after normalization:', globalComments.length);
       commentsLoadingPromise = null;
       return globalComments;
     })
     .catch(err => {
+      console.error('[DBG] loadCommentsDict failed:', err);
       commentsLoadingPromise = null;
       throw err;
     });
