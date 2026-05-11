@@ -131,20 +131,26 @@ function renderTeacherView(container) {
   container.innerHTML =
     '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="text-muted mt-2">Lade Daten...</p></div>';
 
-  // Lade nur die Klassennamen und Phaseninfos (leichtgewichtig)
-  google.script.run
-    .withSuccessHandler(data => {
-      if (!data || data.success === false) {
-        container.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
-        return;
-      }
-      globalData = data;
-      buildTeacherInterface(container, data.classNames, data.phase, data.phaseDescription);
-    })
-    .withFailureHandler(err => {
-      container.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
-    })
-    .getTeacherSummary();
+  // Lade zuerst die Kommentare, DANN das Interface
+  loadCommentsDict().then(() => {
+    google.script.run
+      .withSuccessHandler(data => {
+        if (!data || data.success === false) {
+          container.innerHTML = `<div class="alert alert-danger"><h4>Fehler</h4><p>${(data && data.error) || "Unbekannter Fehler"}</p></div>`;
+          return;
+        }
+        globalData = data;
+        buildTeacherInterface(container, data.classNames, data.phase, data.phaseDescription);
+      })
+      .withFailureHandler(err => {
+        container.innerHTML = `<div class="alert alert-danger">Verbindungsfehler: ${err}</div>`;
+      })
+      .getTeacherSummary();
+  }).catch(err => {
+    console.error('Initial comments load failed:', err);
+    // Trotzdem weitermachen, falls der Server hängt
+    buildTeacherInterface(container, [], 'PROPOSAL', '');
+  });
 }
 
 // Neue Funktion: Interface mit Dropdown sofort anzeigen
