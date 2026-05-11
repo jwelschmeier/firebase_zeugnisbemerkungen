@@ -192,24 +192,30 @@ const ProposalsModule = (function(){
         if(typeof showMessage==='function') showMessage('Fehler', result.error || 'Löschen fehlgeschlagen.','error');
         return;
       }
-      
-      // deleteProposalV2 returns: { success, proposalsByStudent, className, studentId }
-      // Update the student's proposals in globalData
-      if(result.proposalsByStudent && result.studentId && globalData && globalData.studentsByClass && globalData.studentsByClass[className]) {
-        const student = globalData.studentsByClass[className].find(s => s.id === result.studentId);
-        if(student) {
-          student.proposals = result.proposalsByStudent[result.studentId] || [];
-          console.debug('[PM] Updated student proposals after delete:', student.proposals);
-        }
+
+      // deleteProposalV2 returns ideally: { success, proposalsByStudent, className, studentId }
+      // Use server map if available, otherwise always remove locally as robust fallback.
+      const effectiveClass = (result && result.className) || className;
+      const effectiveStudentId = (result && result.studentId) || studentId;
+      const classStudents = (globalData && globalData.studentsByClass && globalData.studentsByClass[effectiveClass]) || [];
+      const student = classStudents.find(s => String(s.id) === String(effectiveStudentId));
+
+      if (student && result && result.proposalsByStudent && result.proposalsByStudent[effectiveStudentId]) {
+        student.proposals = result.proposalsByStudent[effectiveStudentId] || [];
+        console.debug('[PM] Updated student proposals after delete (server map):', student.proposals);
+      } else if (student && Array.isArray(student.proposals)) {
+        const before = student.proposals.length;
+        student.proposals = student.proposals.filter(p => String(p.id) !== String(proposalId));
+        console.debug('[PM] Updated student proposals after delete (local fallback):', { before, after: student.proposals.length, proposalId });
       }
       
       // Re-render the proposals cell (will remove the row with spinner)
-      const updatedStudent = globalData.studentsByClass[className].find(s=>s.id==studentId);
-      const cell = document.getElementById(`proposals-cell-${studentId}`);
+      const updatedStudent = (globalData.studentsByClass[effectiveClass] || []).find(s=>String(s.id)===String(effectiveStudentId));
+      const cell = document.getElementById(`proposals-cell-${effectiveStudentId}`);
       if(updatedStudent && cell) { 
         cell.innerHTML = ProposalsModule.getProposalListHtml(updatedStudent); 
         console.debug('[PM] Re-rendered proposals cell after delete');
-        try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(className); }catch(e){} 
+        try{ if(window.ProposalsCore && ProposalsCore.persistCache) ProposalsCore.persistCache(effectiveClass); }catch(e){} 
       }
     }).withFailureHandler(function(err){
       console.error('[PM] Löschen fehlgeschlagen (network/server error):', err);
