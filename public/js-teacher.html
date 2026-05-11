@@ -55,10 +55,13 @@ function mergeServerStudents(className, serverStudents) {
   const existing = globalData.studentsByClass[className] || null;
   
   if (!existing || existing.length === 0) {
-    // No existing data: clone server students
+    // No existing data: clone server students and set canDelete for all proposals
     const cloned = (serverStudents || []).map(s => ({ 
       ...(s || {}), 
-      proposals: Array.isArray(s.proposals) ? [...s.proposals] : [] 
+      proposals: Array.isArray(s.proposals) ? s.proposals.map(p => ({
+        ...p,
+        canDelete: String(p.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase()
+      })) : [] 
     }));
     globalData.studentsByClass[className] = cloned;
   } else {
