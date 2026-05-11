@@ -1676,6 +1676,13 @@ function mergeServerStudents(className, serverStudents) {
       const existingProps = Array.isArray(s.proposals) ? s.proposals.slice() : [];
       const existingIds = new Set(existingProps.map(p => String(p.id)));
       
+      // IMPORTANT: Set canDelete for ALL existing proposals
+      existingProps.forEach(sp => {
+        try{
+          sp.canDelete = String(sp.creator||'').toLowerCase() === String((globalData&&globalData.userEmail)||'').toLowerCase();
+        }catch(e){}
+      });
+      
       // Add new server proposals that don't exist yet
       serverList.forEach(sp => {
         if (!existingIds.has(String(sp.id))) {
@@ -2586,13 +2593,9 @@ function saveProposalInline(inputElement, event) {
   }
 
   const studentId = inputElement.dataset.studentid;
-  const firstName = inputElement.dataset.firstname || '';
   inputElement.dataset.skipBlurSave = '1';
   autoSaveProposal(inputElement);
   inputElement.value = '';
-
-  // Nach dem Speichern sofort eine zweite Zeile bereitstellen.
-  addInputLine(studentId, firstName);
 }
 
 function handleInputBlur(inputElement) {
@@ -2611,10 +2614,6 @@ function handleInputBlur(inputElement) {
 
   autoSaveProposal(inputElement);
   inputElement.value = '';
-
-  const studentId = inputElement.dataset.studentid;
-  const firstName = inputElement.dataset.firstname || '';
-  addInputLine(studentId, firstName);
 }
 
 
