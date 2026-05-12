@@ -374,6 +374,9 @@
         box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
         background: #0f172a;
     }
+    .custom-input-group.pending-submit .custom-input {
+        background: rgba(37, 99, 235, 0.16);
+    }
     .custom-input-group.pending-submit .input-status-icon {
         color: #3b82f6;
         animation: pulse-icon 1.5s infinite;
@@ -381,6 +384,14 @@
     @keyframes pulse-icon {
         0%, 100% { opacity: 1; }
         50% { opacity: 0.6; }
+    }
+    .enter-hint {
+        color: #93c5fd;
+        font-size: 11px;
+        margin-top: 4px;
+        margin-left: 6px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
     }
     .field-error-message {
         color: #fecaca; /* light red */

@@ -2536,9 +2536,27 @@ function generateInputRowHtml(studentId, uniqueInputId, firstName) {
          }
       </ul>
     </div>
+    <div class="enter-hint hidden" id="enter-hint-${uniqueInputId}"><i class="fa-solid fa-keyboard me-1"></i>Mit Enter uebernehmen</div>
     <div class="field-error-message hidden" id="err-${uniqueInputId}"></div>
   `;
 } 
+
+function setPendingSubmitState(inputElement, isPending) {
+  if (!inputElement) return;
+  const group = document.getElementById('group-' + inputElement.id);
+  const btnId = inputElement.dataset.btnid;
+  const btn = btnId ? document.getElementById(btnId) : null;
+  const hint = document.getElementById('enter-hint-' + inputElement.id);
+
+  if (group) group.classList.toggle('pending-submit', Boolean(isPending));
+  if (btn) {
+    btn.innerHTML = isPending
+      ? '<i class="fa-solid fa-arrow-turn-down-left" style="font-size: 14px;"></i>'
+      : '<i class="fa-solid fa-chevron-down"></i>';
+    btn.title = isPending ? 'Mit Enter uebernehmen' : '';
+  }
+  if (hint) hint.classList.toggle('hidden', !isPending);
+}
 
 // --- OPTIMISTIC AUTO-SAVE (Sofortiges Feedback) ---
 function validateProposalText(text) {
@@ -2561,20 +2579,7 @@ function showFieldError(inputElement, message) {
 
 function handleInput(inputElement) {
   clearFieldError(inputElement);
-  
-  // If field is being edited manually, remove pending-submit state
-  const group = document.getElementById('group-' + inputElement.id);
-  if (group) group.classList.remove('pending-submit');
-  
-  // Restore dropdown icon if pending state is cleared
-  const btnId = inputElement.dataset.btnid;
-  if (btnId) {
-    const btn = document.getElementById(btnId);
-    if (btn && btn.innerHTML.includes('fa-arrow-return-left')) {
-      btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
-      btn.title = '';
-    }
-  }
+  setPendingSubmitState(inputElement, false);
 
   const val = inputElement.value.trim();
   if (val.startsWith('#') || /^\d+$/.test(val)) {
@@ -2609,18 +2614,7 @@ function saveProposalInline(inputElement, event) {
   inputElement.dataset.skipBlurSave = '1';
   autoSaveProposal(inputElement);
   inputElement.value = '';
-
-  // Clear pending-submit state
-  const group = document.getElementById('group-' + inputElement.id);
-  if (group) group.classList.remove('pending-submit');
-  const btnId = inputElement.dataset.btnid;
-  if (btnId) {
-    const btn = document.getElementById(btnId);
-    if (btn) {
-      btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
-      btn.title = '';
-    }
-  }
+  setPendingSubmitState(inputElement, false);
 }
 
 function handleInputBlur(inputElement) {
@@ -2631,39 +2625,12 @@ function handleInputBlur(inputElement) {
 
   const text = String((inputElement && inputElement.value) || '').trim();
   if (!text) {
-    // Clear pending-submit state if field is cleared
-    const group = document.getElementById('group-' + inputElement.id);
-    if (group) group.classList.remove('pending-submit');
-    const btnId = inputElement.dataset.btnid;
-    if (btnId) {
-      const btn = document.getElementById(btnId);
-      if (btn) {
-        btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
-        btn.title = '';
-      }
-    }
+    setPendingSubmitState(inputElement, false);
     return;
   }
 
-  const validation = (typeof validateProposalText === 'function')
-    ? validateProposalText(text)
-    : { valid: true };
-  if (!validation.valid) return;
-
-  autoSaveProposal(inputElement);
-  inputElement.value = '';
-  
-  // Clear pending-submit state
-  const group = document.getElementById('group-' + inputElement.id);
-  if (group) group.classList.remove('pending-submit');
-  const btnId = inputElement.dataset.btnid;
-  if (btnId) {
-    const btn = document.getElementById(btnId);
-    if (btn) {
-      btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
-      btn.title = '';
-    }
-  }
+  // Kein Autosave auf Blur: sichtbar machen, dass Enter erforderlich ist.
+  setPendingSubmitState(inputElement, true);
 }
 
 
@@ -2867,22 +2834,7 @@ function applyComment(uniqueInputId, commentId) {
     if (firstName) text = text.replace(/\$Vorname\$/g, firstName);
     input.value = text;
     
-    // Add visual feedback: highlight the field and change icon
-    const group = document.getElementById('group-' + uniqueInputId);
-    if (group) {
-      group.classList.add('pending-submit');
-      group.classList.remove('error');
-    }
-    
-    const btnId = input.dataset.btnid;
-    if (btnId) {
-      const btn = document.getElementById(btnId);
-      if (btn) {
-        btn.innerHTML = '<i class="fa-solid fa-arrow-return-left" style="font-size: 14px;"></i>';
-        btn.title = 'Enter zum Speichern';
-      }
-    }
-    
+    setPendingSubmitState(input, true);
     input.focus();
   }
 }
