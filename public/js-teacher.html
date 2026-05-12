@@ -959,6 +959,20 @@ function showFieldError(inputElement, message) {
 
 function handleInput(inputElement) {
   clearFieldError(inputElement);
+  
+  // If field is being edited manually, remove pending-submit state
+  const group = document.getElementById('group-' + inputElement.id);
+  if (group) group.classList.remove('pending-submit');
+  
+  // Restore dropdown icon if pending state is cleared
+  const btnId = inputElement.dataset.btnid;
+  if (btnId) {
+    const btn = document.getElementById(btnId);
+    if (btn && btn.innerHTML.includes('fa-arrow-return-left')) {
+      btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+      btn.title = '';
+    }
+  }
 
   const val = inputElement.value.trim();
   if (val.startsWith('#') || /^\d+$/.test(val)) {
@@ -994,6 +1008,18 @@ function saveProposalInline(inputElement, event) {
   inputElement.dataset.skipBlurSave = '1';
   autoSaveProposal(inputElement);
   inputElement.value = '';
+  
+  // Clear pending-submit state
+  const group = document.getElementById('group-' + inputElement.id);
+  if (group) group.classList.remove('pending-submit');
+  const btnId = inputElement.dataset.btnid;
+  if (btnId) {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+      btn.title = '';
+    }
+  }
 }
 
 function handleInputBlur(inputElement) {
@@ -1003,7 +1029,20 @@ function handleInputBlur(inputElement) {
   }
 
   const text = String((inputElement && inputElement.value) || '').trim();
-  if (!text) return;
+  if (!text) {
+    // Clear pending-submit state if field is cleared
+    const group = document.getElementById('group-' + inputElement.id);
+    if (group) group.classList.remove('pending-submit');
+    const btnId = inputElement.dataset.btnid;
+    if (btnId) {
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+        btn.title = '';
+      }
+    }
+    return;
+  }
 
   const validation = (typeof validateProposalText === 'function')
     ? validateProposalText(text)
@@ -1012,6 +1051,18 @@ function handleInputBlur(inputElement) {
 
   autoSaveProposal(inputElement);
   inputElement.value = '';
+  
+  // Clear pending-submit state
+  const group = document.getElementById('group-' + inputElement.id);
+  if (group) group.classList.remove('pending-submit');
+  const btnId = inputElement.dataset.btnid;
+  if (btnId) {
+    const btn = document.getElementById(btnId);
+    if (btn) {
+      btn.innerHTML = '<i class="fa-solid fa-chevron-down"></i>';
+      btn.title = '';
+    }
+  }
 }
 
 
@@ -1214,6 +1265,23 @@ function applyComment(uniqueInputId, commentId) {
     const firstName = input.dataset.firstname;
     if (firstName) text = text.replace(/\$Vorname\$/g, firstName);
     input.value = text;
+    
+    // Add visual feedback: highlight the field and change icon
+    const group = document.getElementById('group-' + uniqueInputId);
+    if (group) {
+      group.classList.add('pending-submit');
+      group.classList.remove('error');
+    }
+    
+    const btnId = input.dataset.btnid;
+    if (btnId) {
+      const btn = document.getElementById(btnId);
+      if (btn) {
+        btn.innerHTML = '<i class="fa-solid fa-arrow-return-left" style="font-size: 14px;"></i>';
+        btn.title = 'Enter zum Speichern';
+      }
+    }
+    
     input.focus();
   }
 }

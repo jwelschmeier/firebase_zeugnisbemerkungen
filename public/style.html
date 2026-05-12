@@ -367,6 +367,21 @@
         border-color: var(--danger);
         box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
     }
+
+    /* STATUS: KOMMENTAR AUSGEWÄHLT - ENTER ERFORDERLICH (Blau) */
+    .custom-input-group.pending-submit {
+        border-color: #3b82f6; /* Bright blue */
+        box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+        background: #0f172a;
+    }
+    .custom-input-group.pending-submit .input-status-icon {
+        color: #3b82f6;
+        animation: pulse-icon 1.5s infinite;
+    }
+    @keyframes pulse-icon {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
     .field-error-message {
         color: #fecaca; /* light red */
         font-size: 11px;
@@ -430,6 +445,7 @@
     /* Farben für Icons im Status-Modus */
     .custom-input-group.saving .input-status-icon { color: #f59e0b; cursor: wait; }
     .custom-input-group.saved .input-status-icon { color: #10b981; cursor: default; }
+    .custom-input-group.pending-submit .input-status-icon { color: #3b82f6; cursor: pointer; font-weight: bold; }
 
     .add-line-btn { color: var(--primary-accent); font-weight: 700; font-size: 11px; background: transparent; border: none; cursor: pointer; padding: 4px 0; display: inline-flex; align-items: center; gap: 4px; opacity: 0.8; }
     .add-line-btn:hover { opacity: 1; text-decoration: underline; }
