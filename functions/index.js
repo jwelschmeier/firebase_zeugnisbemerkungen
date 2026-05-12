@@ -695,6 +695,19 @@ async function getClassVotingStatus(className) {
     if (email) votedEmails.add(email);
   });
 
+  // Proposal creators always have an implicit +1 and therefore count as "hat abgestimmt".
+  const creatorEmails = new Set();
+  const proposalSnap = await db.collection(COLLECTIONS.proposals)
+    .where('className', '==', normalizeText(className))
+    .select('creator', 'deleted')
+    .get();
+  proposalSnap.docs.forEach((doc) => {
+    const data = doc.data() || {};
+    if (data.deleted === true || String(data.deleted).toLowerCase() === 'true') return;
+    const creator = String(data.creator || '').toLowerCase();
+    if (creator.includes('@')) creatorEmails.add(creator);
+  });
+
   const teachers = kuerzels.map((kuerzel) => {
     const teacher = teacherMap[kuerzel];
     const teacherEmail = teacher ? teacher.teacherEmail : '';
@@ -705,7 +718,7 @@ async function getClassVotingStatus(className) {
       teacherEmail,
       emailSlug,
       known: Boolean(teacher),
-      hasVoted: teacherEmail ? votedEmails.has(teacherEmail) : false
+      hasVoted: teacherEmail ? (votedEmails.has(teacherEmail) || creatorEmails.has(teacherEmail)) : false
     };
   });
 
