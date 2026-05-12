@@ -389,15 +389,11 @@ async function importData(payload) {
 }
 
 async function getStudentsByClass(className) {
-  const snap = await db.collection(COLLECTIONS.students)
-    .where('klasse', '==', className)
-    .orderBy('nachname')
-    .orderBy('vorname')
-    .get();
+  const snap = await db.collection(COLLECTIONS.students).where('klasse', '==', className).get();
   return snap.docs.map((doc) => {
     const data = doc.data();
     return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId), proposals: [] };
-  });
+  }).sort((a, b) => `${a.nachname || ''} ${a.vorname || ''}`.localeCompare(`${b.nachname || ''} ${b.vorname || ''}`));
 }
 
 async function getProposalVoteMaps(proposalIds, userEmail, proposalCreatorMap) {
@@ -472,9 +468,9 @@ async function attachProposals(students, phase, userEmail) {
   students.forEach((student) => { byStudent[student.id] = student; });
   const proposals = [];
 
-  for (let i = 0; i < ids.length; i += 50) {
-    const chunk = ids.slice(i, i + 50);
-    const snap = await db.collection(COLLECTIONS.proposals).where('studentId', 'in', chunk).select('id', 'studentId', 'text', 'creator', 'deleted').get();
+  for (let i = 0; i < ids.length; i += 30) {
+    const chunk = ids.slice(i, i + 30);
+    const snap = await db.collection(COLLECTIONS.proposals).where('studentId', 'in', chunk).select('studentId', 'text', 'creator', 'deleted', 'createdAt').get();
     snap.docs.forEach((doc) => {
       const data = doc.data();
       if (data.deleted === true || String(data.deleted).toLowerCase() === 'true') return;
