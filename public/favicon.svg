@@ -1,9 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 115">
-  <g transform="translate(4, 4)">
-    <path d="M4,0 L72,0 L72,16 L88,16 L88,107 L4,107 Z" fill="none" stroke="#1d2d44" stroke-width="6" stroke-linejoin="round"/>
-    <path d="M72,0 L88,16 L72,16 Z" fill="none" stroke="#1d2d44" stroke-width="6" stroke-linejoin="round"/>
-    <line x1="16" y1="44" x2="72" y2="44" stroke="#1d2d44" stroke-width="6" stroke-linecap="round"/>
-    <line x1="16" y1="62" x2="72" y2="62" stroke="#1d2d44" stroke-width="6" stroke-linecap="round"/>
-    <line x1="16" y1="80" x2="52" y2="80" stroke="#1d2d44" stroke-width="6" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Hintergrund mit Gradient -->
+  <defs>
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0891b2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Abgerundetes Quadrat Hintergrund -->
+  <rect width="64" height="64" rx="14" fill="url(#bgGradient)"/>
+  
+  <!-- Dokument-Icon -->
+  <g transform="translate(12, 10)">
+    <!-- Dokumentrahmen -->
+    <rect x="0" y="0" width="40" height="44" rx="2.5" fill="none" stroke="white" stroke-width="1.5"/>
+    
+    <!-- Dokumentlinien -->
+    <line x1="6" y1="8" x2="34" y2="8" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="6" y1="14" x2="34" y2="14" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    <line x1="6" y1="20" x2="28" y2="20" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+    
+    <!-- Checkmark -->
+    <g transform="translate(20, 30)">
+      <path d="M -7 0 L -2 5 L 8 -4" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
   </g>
 </svg>

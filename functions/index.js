@@ -389,11 +389,15 @@ async function importData(payload) {
 }
 
 async function getStudentsByClass(className) {
-  const snap = await db.collection(COLLECTIONS.students).where('klasse', '==', className).get();
+  const snap = await db.collection(COLLECTIONS.students)
+    .where('klasse', '==', className)
+    .orderBy('nachname')
+    .orderBy('vorname')
+    .get();
   return snap.docs.map((doc) => {
     const data = doc.data();
     return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId), proposals: [] };
-  }).sort((a, b) => `${a.nachname || ''} ${a.vorname || ''}`.localeCompare(`${b.nachname || ''} ${b.vorname || ''}`));
+  });
 }
 
 async function getProposalVoteMaps(proposalIds, userEmail, proposalCreatorMap) {
@@ -468,9 +472,9 @@ async function attachProposals(students, phase, userEmail) {
   students.forEach((student) => { byStudent[student.id] = student; });
   const proposals = [];
 
-  for (let i = 0; i < ids.length; i += 30) {
-    const chunk = ids.slice(i, i + 30);
-    const snap = await db.collection(COLLECTIONS.proposals).where('studentId', 'in', chunk).get();
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    const snap = await db.collection(COLLECTIONS.proposals).where('studentId', 'in', chunk).select('id', 'studentId', 'text', 'creator', 'deleted').get();
     snap.docs.forEach((doc) => {
       const data = doc.data();
       if (data.deleted === true || String(data.deleted).toLowerCase() === 'true') return;
@@ -549,25 +553,40 @@ async function getProposalsForClassAndEnsureVotes(className) {
 async function getTeacherData() {
   const summary = await getTeacherSummary();
   const studentsByClass = {};
-  for (const className of summary.classNames) {
-    studentsByClass[className] = (await getStudentsForClass(className)).studentsByClass[className];
+  
+  // Lazy loading: Load only first 3 classes initially, rest on demand
+  const classesToLoad = summary.classNames.slice(0, 3);
+  for (const className of classesToLoad) {
+    try {
+      studentsByClass[className] = (await getStudentsForClass(className)).studentsByClass[className];
+    } catch (err) {
+      console.warn(`Failed to load class ${className}:`, err);
+    }
   }
+  
   return { ...summary, studentsByClass };
 }
 
 async function searchStudentsAcrossClasses(query, limit = 20) {
   const q = normalizeKey(query);
   if (!q) return { success: true, results: [], limited: false, totalMatches: 0 };
-  const snap = await db.collection(COLLECTIONS.students).limit(1000).get();
+  
+  const max = Math.min(Number(limit) || 20, 50);
+  const snap = await db.collection(COLLECTIONS.students)
+    .select('id', 'klasse', 'nachname', 'vorname', 'photoUrl', 'photoId')
+    .limit(max * 3)
+    .get();
+  
   const matches = snap.docs
     .map((doc) => {
       const data = doc.data();
       return { id: doc.id, ...data, photoUrl: data.photoUrl || drivePhotoUrl(data.photoId, 120) };
     })
     .filter((student) => normalizeKey(`${student.klasse} ${student.nachname} ${student.vorname}`).includes(q))
-    .sort((a, b) => `${a.klasse} ${a.nachname}`.localeCompare(`${b.klasse} ${b.nachname}`));
-  const max = Number(limit) || 20;
-  return { success: true, results: matches.slice(0, max), limited: matches.length > max, totalMatches: matches.length };
+    .sort((a, b) => `${a.klasse} ${a.nachname}`.localeCompare(`${b.klasse} ${b.nachname}`))
+    .slice(0, max);
+  
+  return { success: true, results: matches, limited: snap.docs.length === max * 3, totalMatches: matches.length };
 }
 
 async function saveProposalsV2(input) {
