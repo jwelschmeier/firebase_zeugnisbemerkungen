@@ -23,7 +23,10 @@ const COLLECTIONS = {
   comments: 'comments',
   proposals: 'proposals',
   votes: 'votes',
-  settings: 'settings'
+  settings: 'settings',
+  teachers: 'teachers',
+  schedule: 'schedule',
+  votingStatus: 'votingStatus'
 };
 
 function normalizeText(value) {
@@ -36,6 +39,36 @@ function normalizeKey(value) {
 
 function normalizeHeader(value) {
   return normalizeText(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function normalizeClassName(raw) {
+  const text = normalizeText(raw).toUpperCase();
+  if (!text || text.includes(',')) return '';
+  const compact = text.replace(/\s+/g, '');
+  const match = compact.match(/^(\d{1,2})(.*)$/);
+  if (!match) return compact;
+  const grade = String(Number(match[1])).padStart(2, '0');
+  const suffix = match[2] || '';
+  return `${grade}${suffix}`;
+}
+
+function toEmailSlug(name) {
+  const base = normalizeText(name).split(',')[0] || '';
+  return base
+    .toLowerCase()
+    .replace(/ae/g, 'ae')
+    .replace(/oe/g, 'oe')
+    .replace(/ue/g, 'ue')
+    .replace(/ss/g, 'ss')
+    .replace(/[\u00e4]/g, 'ae')
+    .replace(/[\u00f6]/g, 'oe')
+    .replace(/[\u00fc]/g, 'ue')
+    .replace(/[\u00df]/g, 'ss')
+    .replace(/[^a-z0-9]/g, '');
+}
+
+function encodeKey(value) {
+  return String(value || '').replace(/[^\w.-]/g, '_');
 }
 
 function currentAuth() {
@@ -375,6 +408,89 @@ async function importCommentsTXT(txtContent) {
   return { success: true, message: `${cleaned.length} Bemerkungen importiert.` };
 }
 
+async function importTeachersCsv(csvContent) {
+  const firstLine = String(csvContent || '').split('\n')[0] || '';
+  const delimiter = firstLine.includes(';') ? ';' : ',';
+  const rows = parseCsv(csvContent, delimiter);
+  const header = rows[0] || [];
+  const headerMap = {};
+  header.forEach((name, index) => { headerMap[normalizeHeader(name)] = index; });
+
+  const kuerzelIndex = headerMap.kuerzel !== undefined ? headerMap.kuerzel : headerMap.krzel;
+  const nameIndex = headerMap.name;
+  const hasNamedColumns = kuerzelIndex !== undefined && nameIndex !== undefined;
+  const startIndex = hasNamedColumns ? 1 : 0;
+
+  const byKuerzel = new Map();
+  rows.slice(startIndex).forEach((row) => {
+    if (!row || row.length < 2) return;
+    const kuerzel = normalizeText(row[hasNamedColumns ? kuerzelIndex : 0]).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const name = normalizeText(row[hasNamedColumns ? nameIndex : 1]);
+    if (!kuerzel || !name) return;
+    if (!byKuerzel.has(kuerzel)) {
+      byKuerzel.set(kuerzel, { kuerzel, name, emailSlug: toEmailSlug(name) });
+    }
+  });
+
+  await deleteCollection(COLLECTIONS.teachers);
+  let batch = db.batch();
+  let opCount = 0;
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  byKuerzel.forEach((teacher) => {
+    const ref = db.collection(COLLECTIONS.teachers).doc(teacher.kuerzel);
+    batch.set(ref, {
+      kuerzel: teacher.kuerzel,
+      name: teacher.name,
+      emailSlug: teacher.emailSlug,
+      updatedAt: now
+    }, { merge: true });
+    opCount += 1;
+  });
+  if (opCount > 0) await batch.commit();
+  return { success: true, message: `${byKuerzel.size} Lehrkraefte importiert.` };
+}
+
+async function importScheduleTxt(txtContent) {
+  const rows = parseCsv(txtContent, ',');
+  const unique = new Map();
+
+  rows.forEach((row) => {
+    if (!row || row.length < 3) return;
+    const classNameRaw = normalizeText(row[1]);
+    const kuerzel = normalizeText(row[2]).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!classNameRaw || !kuerzel) return;
+    if (classNameRaw.includes(',')) return;
+    const classNameNorm = normalizeClassName(classNameRaw);
+    if (!classNameNorm) return;
+    const key = `${classNameNorm}_${kuerzel}`;
+    if (!unique.has(key)) {
+      unique.set(key, { classNameRaw, classNameNorm, kuerzel });
+    }
+  });
+
+  await deleteCollection(COLLECTIONS.schedule);
+  let batch = db.batch();
+  let opCount = 0;
+  const now = admin.firestore.FieldValue.serverTimestamp();
+  for (const [key, entry] of unique.entries()) {
+    const ref = db.collection(COLLECTIONS.schedule).doc(key);
+    batch.set(ref, {
+      classNameRaw: entry.classNameRaw,
+      classNameNorm: entry.classNameNorm,
+      kuerzel: entry.kuerzel,
+      updatedAt: now
+    }, { merge: true });
+    opCount += 1;
+    if (opCount >= 450) {
+      await batch.commit();
+      batch = db.batch();
+      opCount = 0;
+    }
+  }
+  if (opCount > 0) await batch.commit();
+  return { success: true, message: `${unique.size} Klassen-Lehrkraft-Zuordnungen importiert.` };
+}
+
 async function importData(payload) {
   const results = [];
   if (payload && payload.students) {
@@ -383,6 +499,14 @@ async function importData(payload) {
   }
   if (payload && payload.comments) {
     const result = await importCommentsTXT(payload.comments);
+    results.push(result.message);
+  }
+  if (payload && payload.teachers) {
+    const result = await importTeachersCsv(payload.teachers);
+    results.push(result.message);
+  }
+  if (payload && payload.schedule) {
+    const result = await importScheduleTxt(payload.schedule);
     results.push(result.message);
   }
   return { success: true, message: results.join(' | ') };
@@ -520,6 +644,56 @@ async function getTeacherSummary() {
     classNames,
     userEmail: currentUserEmail()
   };
+}
+
+async function getClassVotingStatus(className) {
+  const classNameNorm = normalizeClassName(className);
+  if (!classNameNorm) return { success: true, className, classNameNorm: '', teachers: [] };
+
+  const scheduleSnap = await db.collection(COLLECTIONS.schedule).where('classNameNorm', '==', classNameNorm).get();
+  const kuerzelSet = new Set(
+    scheduleSnap.docs
+      .map((doc) => normalizeText((doc.data() || {}).kuerzel).toUpperCase())
+      .filter(Boolean)
+  );
+  const kuerzels = Array.from(kuerzelSet).sort();
+
+  const teacherMap = {};
+  for (let i = 0; i < kuerzels.length; i += 30) {
+    const chunk = kuerzels.slice(i, i + 30);
+    if (!chunk.length) continue;
+    const teacherSnap = await db.collection(COLLECTIONS.teachers).where('kuerzel', 'in', chunk).get();
+    teacherSnap.docs.forEach((doc) => {
+      const data = doc.data() || {};
+      teacherMap[String(data.kuerzel || '').toUpperCase()] = {
+        name: normalizeText(data.name),
+        emailSlug: normalizeText(data.emailSlug).toLowerCase()
+      };
+    });
+  }
+
+  const statusSnap = await db.collection(COLLECTIONS.votingStatus).where('classNameNorm', '==', classNameNorm).get();
+  const votedSlugs = new Set();
+  statusSnap.docs.forEach((doc) => {
+    const data = doc.data() || {};
+    const email = String(data.teacherEmail || '').toLowerCase();
+    const localPart = email.split('@')[0] || '';
+    if (localPart) votedSlugs.add(localPart);
+  });
+
+  const teachers = kuerzels.map((kuerzel) => {
+    const teacher = teacherMap[kuerzel];
+    const emailSlug = teacher ? teacher.emailSlug : '';
+    return {
+      kuerzel,
+      name: teacher ? teacher.name : '',
+      emailSlug,
+      known: Boolean(teacher),
+      hasVoted: emailSlug ? votedSlugs.has(emailSlug) : false
+    };
+  });
+
+  return { success: true, className, classNameNorm, teachers };
 }
 
 async function getStudentsForClass(className) {
@@ -711,6 +885,20 @@ async function castVote(input, maybeValue) {
       value: voteValue,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
+
+    const proposalData = proposalSnap.exists ? (proposalSnap.data() || {}) : {};
+    const rawClassName = normalizeText(proposalData.className || proposalData.klasse || '');
+    const classNameNorm = normalizeClassName(rawClassName);
+    if (classNameNorm) {
+      const statusId = `${classNameNorm}_${encodeKey(teacherEmailLc)}`;
+      await db.collection(COLLECTIONS.votingStatus).doc(statusId).set({
+        className: rawClassName || classNameNorm,
+        classNameNorm,
+        teacherEmail: teacherEmailLc,
+        votedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      }, { merge: true });
+    }
   }
   const { voteCounts, myVotes } = await getProposalVoteMaps([proposalIdStr], teacherEmail, { [proposalIdStr]: proposalCreator });
   const counts = voteCounts[proposalIdStr] || { pos: proposalCreator ? 1 : 0, neg: 0, votersPos: proposalCreator ? [proposalCreator] : [], votersNeg: [] };
@@ -875,6 +1063,7 @@ const handlers = {
   getAdminInitData,
   getAllStudents,
   getAppPhase,
+  getClassVotingStatus,
   getAvailableComments,
   getProposalsForClass,
   getProposalsForClassAndEnsureVotes,
@@ -885,7 +1074,9 @@ const handlers = {
   getTeacherSummary,
   importCommentsTXT,
   importData,
+  importScheduleTxt,
   importStudentsCSV,
+  importTeachersCsv,
   loadStudentPhotos,
   rebuildIndexes,
   resetVotesForStudents,

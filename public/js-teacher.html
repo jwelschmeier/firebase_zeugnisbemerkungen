@@ -9,6 +9,7 @@ if (typeof pendingStudentFocus === 'undefined') window.pendingStudentFocus = nul
 if (typeof pendingProposalSaves === 'undefined') window.pendingProposalSaves = {};
 if (typeof pendingDeletions === 'undefined') window.pendingDeletions = new Set();
 if (typeof currentRenderWindow === 'undefined') window.currentRenderWindow = null; // Global reference to renderWindow
+if (typeof votingStatusByClass === 'undefined') window.votingStatusByClass = {};
 
 function addOptimisticProposal(className, studentId, proposal) {
   if (window.ProposalsModule && ProposalsModule.addOptimisticProposal) return ProposalsModule.addOptimisticProposal(className, studentId, proposal);
@@ -247,6 +248,7 @@ function renderStudentListLazy(className) {
   // Token MUSS am Anfang definiert werden, damit alle async Callbacks Zugriff haben
   const token = Date.now();
   classRequestToken[className] = token;
+  if (globalData.phase === 'VOTING') updateVotingStatusForClass(className);
 
   // 1. Prüfen, ob Daten bereits im Frontend-Cache sind
   if (globalData.studentsByClass && Array.isArray(globalData.studentsByClass[className]) && globalData.studentsByClass[className].length > 0) {
@@ -312,6 +314,7 @@ function renderStudentListLazy(className) {
         if (summary) {
           globalData.phase = summary.phase || globalData.phase;
           globalData.phaseDescription = summary.phaseDescription || globalData.phaseDescription;
+          if (globalData.phase === 'VOTING') updateVotingStatusForClass(className);
         }
         
         cacheLoadCount++;
@@ -411,6 +414,7 @@ function renderStudentListLazy(className) {
       // SOFORT anzeigen ohne auf Proposals zu warten
       globalData.phase = data.phase;
       globalData.phaseDescription = data.phaseDescription;
+      if (globalData.phase === 'VOTING') updateVotingStatusForClass(className);
       applyServerData({ 
         phase: data.phase, 
         phaseDescription: data.phaseDescription, 
@@ -496,6 +500,66 @@ function renderStudentListLazy(className) {
     })
     .getProposalsForClassAndEnsureVotes(className);
     
+}
+
+function updateVotingStatusForClass(className) {
+  if (!className || globalData.phase !== 'VOTING') return;
+  runServer('getClassVotingStatus', className)
+    .then((res) => {
+      if (!res || res.success === false) return;
+      globalData.votingStatusByClass = globalData.votingStatusByClass || {};
+      globalData.votingStatusByClass[className] = res.teachers || [];
+      renderVotingStatusPanel(className);
+    })
+    .catch((err) => {
+      console.warn('Voting status could not be loaded:', err);
+    });
+}
+
+function renderVotingStatusPanel(className) {
+  const panel = document.getElementById('voting-status-panel');
+  if (!panel || !className) return;
+
+  const teacherStatuses = (globalData.votingStatusByClass && globalData.votingStatusByClass[className]) || [];
+  if (!teacherStatuses.length) {
+    panel.innerHTML = '<div class="text-muted" style="font-size:12px;">Kein Abstimmungsstatus verfuegbar. Bitte Unterrichtsverteilung und Lehrerkuerzel importieren.</div>';
+    return;
+  }
+
+  const currentUserSlug = String((globalData.userEmail || '').split('@')[0] || '').toLowerCase();
+  const badges = teacherStatuses.map((entry) => {
+    const known = entry && entry.known;
+    const hasVoted = entry && entry.hasVoted;
+    const label = known
+      ? `${entry.name} (${entry.kuerzel})`
+      : `? ${entry.kuerzel}`;
+
+    let bg = 'rgba(100,116,139,0.20)';
+    let border = 'rgba(100,116,139,0.50)';
+    let icon = '?';
+    if (known && hasVoted) {
+      bg = 'rgba(16,185,129,0.20)';
+      border = 'rgba(16,185,129,0.55)';
+      icon = 'OK';
+    } else if (known && !hasVoted) {
+      bg = 'rgba(239,68,68,0.18)';
+      border = 'rgba(239,68,68,0.50)';
+      icon = 'NO';
+    }
+
+    const highlight = entry.emailSlug && entry.emailSlug === currentUserSlug
+      ? 'box-shadow: 0 0 0 1px #f59e0b inset;'
+      : '';
+
+    return `<span style="display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:999px; font-size:11px; background:${bg}; border:1px solid ${border}; ${highlight}">${icon} ${label}</span>`;
+  }).join(' ');
+
+  panel.innerHTML = `
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px;">
+      <div style="font-size:12px; color:#cbd5e1;"><i class="fa-solid fa-user-check me-1"></i> Abstimmungsstatus</div>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px;">${badges}</div>
+  `;
 }
 
 function showProposalsLoading(className) {
@@ -588,7 +652,17 @@ function renderStudentList(className) {
   }));
 
   // Chunked rendering: avoid blocking the main thread when many rows
-  renderStudentTableChunked(listArea, filtered, phase);
+  if (phase === 'VOTING') {
+    listArea.innerHTML = `
+      <div id="voting-status-panel" style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:10px; margin-bottom:10px;"></div>
+      <div id="student-virtual-list"></div>
+    `;
+    renderVotingStatusPanel(className);
+    const tableHost = document.getElementById('student-virtual-list');
+    renderStudentTableChunked(tableHost, filtered, phase);
+  } else {
+    renderStudentTableChunked(listArea, filtered, phase);
+  }
 
   if (pendingStudentFocus && pendingStudentFocus.className === className) {
     focusStudentRow(pendingStudentFocus.studentId);
