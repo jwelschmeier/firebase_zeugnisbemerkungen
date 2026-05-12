@@ -417,18 +417,31 @@ async function importTeachersCsv(csvContent) {
   header.forEach((name, index) => { headerMap[normalizeHeader(name)] = index; });
 
   const kuerzelIndex = headerMap.kuerzel !== undefined ? headerMap.kuerzel : headerMap.krzel;
+  const emailIndex = headerMap.emaildienstlich !== undefined
+    ? headerMap.emaildienstlich
+    : (headerMap.email !== undefined ? headerMap.email : headerMap.emailadresse);
   const nameIndex = headerMap.name;
-  const hasNamedColumns = kuerzelIndex !== undefined && nameIndex !== undefined;
+  const hasNamedColumns = kuerzelIndex !== undefined && (emailIndex !== undefined || nameIndex !== undefined);
   const startIndex = hasNamedColumns ? 1 : 0;
 
   const byKuerzel = new Map();
   rows.slice(startIndex).forEach((row) => {
     if (!row || row.length < 2) return;
     const kuerzel = normalizeText(row[hasNamedColumns ? kuerzelIndex : 0]).toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const name = normalizeText(row[hasNamedColumns ? nameIndex : 1]);
-    if (!kuerzel || !name) return;
+    const rawEmail = normalizeText(row[hasNamedColumns ? (emailIndex !== undefined ? emailIndex : 1) : 1]).toLowerCase();
+    const email = rawEmail.includes('@') ? rawEmail : '';
+    const name = normalizeText(row[hasNamedColumns && nameIndex !== undefined ? nameIndex : 1]);
+    if (!kuerzel) return;
+    if (!email && !name) return;
+    const fallbackLocalPart = email ? String(email).split('@')[0] : '';
+    const displayName = name || fallbackLocalPart || kuerzel;
     if (!byKuerzel.has(kuerzel)) {
-      byKuerzel.set(kuerzel, { kuerzel, name, emailSlug: toEmailSlug(name) });
+      byKuerzel.set(kuerzel, {
+        kuerzel,
+        name: displayName,
+        teacherEmail: email,
+        emailSlug: email ? String(email).split('@')[0] : toEmailSlug(displayName)
+      });
     }
   });
 
@@ -441,6 +454,7 @@ async function importTeachersCsv(csvContent) {
     batch.set(ref, {
       kuerzel: teacher.kuerzel,
       name: teacher.name,
+      teacherEmail: teacher.teacherEmail || '',
       emailSlug: teacher.emailSlug,
       updatedAt: now
     }, { merge: true });
@@ -667,29 +681,31 @@ async function getClassVotingStatus(className) {
       const data = doc.data() || {};
       teacherMap[String(data.kuerzel || '').toUpperCase()] = {
         name: normalizeText(data.name),
+        teacherEmail: normalizeText(data.teacherEmail).toLowerCase(),
         emailSlug: normalizeText(data.emailSlug).toLowerCase()
       };
     });
   }
 
   const statusSnap = await db.collection(COLLECTIONS.votingStatus).where('classNameNorm', '==', classNameNorm).get();
-  const votedSlugs = new Set();
+  const votedEmails = new Set();
   statusSnap.docs.forEach((doc) => {
     const data = doc.data() || {};
     const email = String(data.teacherEmail || '').toLowerCase();
-    const localPart = email.split('@')[0] || '';
-    if (localPart) votedSlugs.add(localPart);
+    if (email) votedEmails.add(email);
   });
 
   const teachers = kuerzels.map((kuerzel) => {
     const teacher = teacherMap[kuerzel];
+    const teacherEmail = teacher ? teacher.teacherEmail : '';
     const emailSlug = teacher ? teacher.emailSlug : '';
     return {
       kuerzel,
       name: teacher ? teacher.name : '',
+      teacherEmail,
       emailSlug,
       known: Boolean(teacher),
-      hasVoted: emailSlug ? votedSlugs.has(emailSlug) : false
+      hasVoted: teacherEmail ? votedEmails.has(teacherEmail) : false
     };
   });
 

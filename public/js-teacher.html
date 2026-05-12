@@ -522,11 +522,11 @@ function renderVotingStatusPanel(className) {
 
   const teacherStatuses = (globalData.votingStatusByClass && globalData.votingStatusByClass[className]) || [];
   if (!teacherStatuses.length) {
-    panel.innerHTML = '<div class="text-muted" style="font-size:12px;">Kein Abstimmungsstatus verfuegbar. Bitte Unterrichtsverteilung und Lehrerkuerzel importieren.</div>';
+    panel.innerHTML = '<div class="text-muted" style="font-size:12px;">Kein Abstimmungsstatus verfuegbar. Bitte Unterrichtsverteilung und Lehrerdatei aus SchiLD importieren.</div>';
     return;
   }
 
-  const currentUserSlug = String((globalData.userEmail || '').split('@')[0] || '').toLowerCase();
+  const currentUserEmail = String(globalData.userEmail || '').toLowerCase();
   const badges = teacherStatuses.map((entry) => {
     const known = entry && entry.known;
     const hasVoted = entry && entry.hasVoted;
@@ -547,7 +547,7 @@ function renderVotingStatusPanel(className) {
       icon = 'NO';
     }
 
-    const highlight = entry.emailSlug && entry.emailSlug === currentUserSlug
+    const highlight = entry.teacherEmail && entry.teacherEmail.toLowerCase() === currentUserEmail
       ? 'box-shadow: 0 0 0 1px #f59e0b inset;'
       : '';
 

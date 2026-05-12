@@ -240,7 +240,7 @@ function buildAdminHTML(phase, desc, badgeProp, badgeVote, statusTextProp, statu
               <h4 class="card-title text-info mb-3 d-flex align-items-center" style="font-size:1rem; font-weight:600;">
                 <i class="fa-solid fa-clipboard-check me-2"></i> Unterrichtsplan &amp; Lehrerzuordnung
               </h4>
-              <p class="small text-muted mb-3" style="font-size:11px;">Import fuer Abstimmungsstatus je Klasse. Zuerst GPU001.TXT, dann Lehrerkuerzel-CSV.</p>
+              <p class="small text-muted mb-3" style="font-size:11px;">Import fuer Abstimmungsstatus je Klasse. Zuerst GPU001.TXT, dann die Lehrerdatei aus SchiLD.</p>
 
               <div class="row g-3">
                 <div class="col-md-6">
@@ -253,9 +253,9 @@ function buildAdminHTML(phase, desc, badgeProp, badgeVote, statusTextProp, statu
                 </div>
 
                 <div class="col-md-6">
-                  <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;"><i class="fa-solid fa-id-badge me-1"></i> Lehrerkuerzel (CSV)</label>
-                  <input type="file" id="fTeachers" accept=".csv" class="form-control form-control-sm bg-dark text-light border-secondary">
-                  <div class="text-muted" style="font-size:10px; margin-top:2px;">Format: Kuerzel,Name</div>
+                  <label class="text-muted text-uppercase fw-bold mb-1 d-block" style="font-size:11px;"><i class="fa-solid fa-id-badge me-1"></i> Lehrerdatei aus SchiLD</label>
+                  <input type="file" id="fTeachers" accept=".txt,.csv" class="form-control form-control-sm bg-dark text-light border-secondary">
+                  <div class="text-muted" style="font-size:10px; margin-top:2px;">Vorlage: "Kuerzel";"E-Mail (Dienstlich)" (SchiLD-Export)</div>
                   <button onclick="startImportTeachers()" class="btn btn-outline-info btn-sm mt-2 w-100">
                     <i class="fa-solid fa-upload me-2"></i> Lehrerzuordnung importieren
                   </button>
@@ -906,7 +906,7 @@ function startImportTeachers() {
   const file = document.getElementById('fTeachers').files[0];
   const stat = document.getElementById('statVotingImport');
   if (!file) {
-    showMessage('Fehler', 'Bitte zuerst die Lehrerkuerzel-CSV auswaehlen.', 'error');
+    showMessage('Fehler', 'Bitte zuerst die Lehrerdatei aus SchiLD auswaehlen.', 'error');
     return;
   }
 
