@@ -2549,6 +2549,7 @@ function setPendingSubmitState(inputElement, isPending) {
   const hint = document.getElementById('enter-hint-' + inputElement.id);
 
   if (group) group.classList.toggle('pending-submit', Boolean(isPending));
+  if (group && isPending) group.classList.remove('saved');
   if (btn) {
     btn.innerHTML = isPending
       ? '<i class="fa-solid fa-arrow-turn-down-left" style="font-size: 14px;"></i>'
@@ -2556,6 +2557,40 @@ function setPendingSubmitState(inputElement, isPending) {
     btn.title = isPending ? 'Mit Enter uebernehmen' : '';
   }
   if (hint) hint.classList.toggle('hidden', !isPending);
+  if (hint && isPending) {
+    hint.classList.remove('success');
+    hint.innerHTML = '<i class="fa-solid fa-keyboard me-1"></i>Mit Enter uebernehmen';
+  }
+}
+
+const inputSavedHintTimers = {};
+function showSavedInputConfirmation(inputElement) {
+  if (!inputElement) return;
+  const group = document.getElementById('group-' + inputElement.id);
+  const hint = document.getElementById('enter-hint-' + inputElement.id);
+  const timerKey = inputElement.id;
+
+  if (inputSavedHintTimers[timerKey]) clearTimeout(inputSavedHintTimers[timerKey]);
+
+  if (group) {
+    group.classList.remove('pending-submit');
+    group.classList.add('saved');
+  }
+  if (hint) {
+    hint.classList.remove('hidden');
+    hint.classList.add('success');
+    hint.innerHTML = '<i class="fa-solid fa-check me-1"></i>Uebernommen';
+  }
+
+  inputSavedHintTimers[timerKey] = setTimeout(() => {
+    if (group) group.classList.remove('saved');
+    if (hint) {
+      hint.classList.remove('success');
+      hint.classList.add('hidden');
+      hint.innerHTML = '<i class="fa-solid fa-keyboard me-1"></i>Mit Enter uebernehmen';
+    }
+    delete inputSavedHintTimers[timerKey];
+  }, 1000);
 }
 
 // --- OPTIMISTIC AUTO-SAVE (Sofortiges Feedback) ---
@@ -2615,6 +2650,7 @@ function saveProposalInline(inputElement, event) {
   autoSaveProposal(inputElement);
   inputElement.value = '';
   setPendingSubmitState(inputElement, false);
+  showSavedInputConfirmation(inputElement);
 }
 
 function handleInputBlur(inputElement) {

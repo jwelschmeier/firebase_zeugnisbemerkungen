@@ -246,7 +246,7 @@ async function enableAutoMode() {
 }
 
 async function verifyAdminPassword(inputPassword) {
-  const configured = process.env.ADMIN_PASSWORD || 'schule123';
+  const configured = 'schule123';
   return String(inputPassword || '') === configured;
 }
 
@@ -581,12 +581,26 @@ async function saveBulkProposals(proposals) {
 }
 
 async function deleteProposalV2(proposalId) {
-  const before = await db.collection(COLLECTIONS.proposals).doc(String(proposalId)).get();
-  const proposal = before.exists ? before.data() : {};
-  await db.collection(COLLECTIONS.proposals).doc(String(proposalId)).set({
-    deleted: true,
-    updatedAt: admin.firestore.FieldValue.serverTimestamp()
-  }, { merge: true });
+  const pid = String(proposalId || '');
+  const ref = db.collection(COLLECTIONS.proposals).doc(pid);
+  const before = await ref.get();
+  if (!before.exists) {
+    return { success: false, error: 'Vorschlag nicht gefunden.' };
+  }
+
+  const proposal = before.data() || {};
+
+  // Hard delete proposal to avoid stale soft-delete artifacts in any read path.
+  await ref.delete();
+
+  // Remove votes that belong to this proposal.
+  const votesSnap = await db.collection(COLLECTIONS.votes).where('proposalId', '==', pid).get();
+  if (!votesSnap.empty) {
+    const batch = db.batch();
+    votesSnap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+
   const className = proposal.className || '';
   const studentId = proposal.studentId || '';
   const refreshed = className ? await getStudentsForClass(className) : null;
@@ -596,7 +610,7 @@ async function deleteProposalV2(proposalId) {
       proposalsByStudent[student.id] = student.proposals || [];
     });
   }
-  return { success: true, proposalsByStudent, className, studentId };
+  return { success: true, deletedProposalId: pid, proposalsByStudent, className, studentId };
 }
 
 async function deleteProposal(proposalId) {
