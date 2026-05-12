@@ -396,27 +396,66 @@ async function getStudentsByClass(className) {
   }).sort((a, b) => `${a.nachname || ''} ${a.vorname || ''}`.localeCompare(`${b.nachname || ''} ${b.vorname || ''}`));
 }
 
-async function getProposalVoteMaps(proposalIds, userEmail) {
+async function getProposalVoteMaps(proposalIds, userEmail, proposalCreatorMap) {
   const voteCounts = {};
   const myVotes = {};
   if (!proposalIds.length) return { voteCounts, myVotes };
+
+  const userEmailLc = String(userEmail || '').toLowerCase();
+  const creatorByProposal = {};
+
+  if (proposalCreatorMap && typeof proposalCreatorMap === 'object') {
+    Object.keys(proposalCreatorMap).forEach((pid) => {
+      creatorByProposal[String(pid)] = String(proposalCreatorMap[pid] || '').toLowerCase();
+    });
+  } else {
+    const proposalChunks = [];
+    for (let i = 0; i < proposalIds.length; i += 30) proposalChunks.push(proposalIds.slice(i, i + 30));
+    for (const ids of proposalChunks) {
+      const snap = await db.collection(COLLECTIONS.proposals)
+        .where(admin.firestore.FieldPath.documentId(), 'in', ids.map((id) => String(id)))
+        .get();
+      snap.docs.forEach((doc) => {
+        const data = doc.data() || {};
+        creatorByProposal[String(doc.id)] = String(data.creator || '').toLowerCase();
+      });
+    }
+  }
+
+  // Creator vote is always counted as implicit +1.
+  proposalIds.forEach((pidRaw) => {
+    const pid = String(pidRaw);
+    const creator = creatorByProposal[pid] || '';
+    voteCounts[pid] = { pos: creator ? 1 : 0, neg: 0, votersPos: creator ? [creator] : [], votersNeg: [] };
+    if (userEmailLc && creator && userEmailLc === creator) myVotes[pid] = 1;
+  });
 
   const chunks = [];
   for (let i = 0; i < proposalIds.length; i += 30) chunks.push(proposalIds.slice(i, i + 30));
   for (const ids of chunks) {
     const snap = await db.collection(COLLECTIONS.votes).where('proposalId', 'in', ids).get();
     snap.docs.forEach((doc) => {
-      const vote = doc.data();
-      const pid = vote.proposalId;
+      const vote = doc.data() || {};
+      const pid = String(vote.proposalId || '');
+      const voter = String(vote.teacherEmail || '').toLowerCase();
+      const creator = creatorByProposal[pid] || '';
+
+      // Ignore explicit votes from creator: creator vote remains implicit +1.
+      if (creator && voter === creator) return;
+
       voteCounts[pid] = voteCounts[pid] || { pos: 0, neg: 0, votersPos: [], votersNeg: [] };
       if (Number(vote.value) > 0) {
-        voteCounts[pid].pos += 1;
-        voteCounts[pid].votersPos.push(vote.teacherEmail);
+        if (!voteCounts[pid].votersPos.includes(voter)) {
+          voteCounts[pid].pos += 1;
+          voteCounts[pid].votersPos.push(voter);
+        }
       } else if (Number(vote.value) < 0) {
-        voteCounts[pid].neg += 1;
-        voteCounts[pid].votersNeg.push(vote.teacherEmail);
+        if (!voteCounts[pid].votersNeg.includes(voter)) {
+          voteCounts[pid].neg += 1;
+          voteCounts[pid].votersNeg.push(voter);
+        }
       }
-      if (userEmail && vote.teacherEmail === userEmail) myVotes[pid] = Number(vote.value);
+      if (userEmailLc && voter === userEmailLc) myVotes[pid] = Number(vote.value);
     });
   }
   return { voteCounts, myVotes };
@@ -439,8 +478,13 @@ async function attachProposals(students, phase, userEmail) {
     });
   }
 
+  const proposalCreatorMap = {};
+  proposals.forEach((proposal) => {
+    proposalCreatorMap[String(proposal.id)] = String(proposal.creator || '').toLowerCase();
+  });
+
   const { voteCounts, myVotes } = phase === 'VOTING'
-    ? await getProposalVoteMaps(proposals.map((p) => p.id), userEmail)
+    ? await getProposalVoteMaps(proposals.map((p) => p.id), userEmail, proposalCreatorMap)
     : { voteCounts: {}, myVotes: {} };
 
   proposals.sort((a, b) => String(a.createdAt || '').localeCompare(String(b.createdAt || '')));
@@ -621,24 +665,43 @@ async function castVote(input, maybeValue) {
   const proposalId = typeof input === 'object' && input !== null ? input.proposalId : input;
   const value = typeof input === 'object' && input !== null ? input.value : maybeValue;
   const teacherEmail = currentUserEmail();
+  const teacherEmailLc = String(teacherEmail || '').toLowerCase();
+  const proposalIdStr = String(proposalId);
+  const proposalSnap = await db.collection(COLLECTIONS.proposals).doc(proposalIdStr).get();
+  const proposalCreator = proposalSnap.exists ? String((proposalSnap.data() || {}).creator || '').toLowerCase() : '';
+
+  // Creator vote is always implicit +1 and cannot be changed.
+  if (proposalCreator && teacherEmailLc === proposalCreator) {
+    const { voteCounts, myVotes } = await getProposalVoteMaps([proposalIdStr], teacherEmail, { [proposalIdStr]: proposalCreator });
+    const counts = voteCounts[proposalIdStr] || { pos: 1, neg: 0, votersPos: [proposalCreator], votersNeg: [] };
+    return {
+      success: true,
+      myVote: myVotes[proposalIdStr] || 1,
+      pos: counts.pos,
+      neg: counts.neg,
+      votersPos: counts.votersPos.join(', '),
+      votersNeg: counts.votersNeg.join(', ')
+    };
+  }
+
   const rawValue = Number(value);
-  const voteId = `${proposalId}_${teacherEmail.replace(/[^\w.-]/g, '_')}`;
+  const voteId = `${proposalIdStr}_${teacherEmail.replace(/[^\w.-]/g, '_')}`;
   if (rawValue === 0) {
     await db.collection(COLLECTIONS.votes).doc(voteId).delete().catch(() => {});
   } else {
     const voteValue = rawValue > 0 ? 1 : -1;
     await db.collection(COLLECTIONS.votes).doc(voteId).set({
-      proposalId: String(proposalId),
+      proposalId: proposalIdStr,
       teacherEmail,
       value: voteValue,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
   }
-  const { voteCounts, myVotes } = await getProposalVoteMaps([String(proposalId)], teacherEmail);
-  const counts = voteCounts[String(proposalId)] || { pos: 0, neg: 0, votersPos: [], votersNeg: [] };
+  const { voteCounts, myVotes } = await getProposalVoteMaps([proposalIdStr], teacherEmail, { [proposalIdStr]: proposalCreator });
+  const counts = voteCounts[proposalIdStr] || { pos: proposalCreator ? 1 : 0, neg: 0, votersPos: proposalCreator ? [proposalCreator] : [], votersNeg: [] };
   return {
     success: true,
-    myVote: myVotes[String(proposalId)] || 0,
+    myVote: myVotes[proposalIdStr] || 0,
     pos: counts.pos,
     neg: counts.neg,
     votersPos: counts.votersPos.join(', '),
