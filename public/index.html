@@ -92,6 +92,50 @@
         color: var(--text-light);
         border-color: var(--primary-accent);
     }
+    .help-btn {
+        width: 34px;
+        height: 34px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--border-dark);
+        border-radius: 6px;
+        background: #1e293b;
+        color: var(--text-soft);
+        cursor: pointer;
+        font-size: 15px;
+        font-weight: 700;
+    }
+    .help-btn:hover { color: var(--text-light); border-color: var(--primary-accent); }
+    .help-step {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        padding: 12px 0;
+        border-bottom: 1px solid #1e293b;
+    }
+    .help-step:last-child { border-bottom: none; }
+    .help-step-num {
+        flex-shrink: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 14px;
+    }
+    .help-phase-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: .05em;
+        text-transform: uppercase;
+        padding: 3px 8px;
+        border-radius: 4px;
+        display: inline-block;
+        margin-bottom: 8px;
+    }
     @media (max-width: 720px) {
         .app-header { grid-template-columns: 1fr; }
         .auth-bar { justify-content: center; }
@@ -478,6 +522,9 @@
         </div>
         <div class="auth-bar" id="auth-bar">
           <span class="auth-email" id="auth-user-email"></span>
+          <button type="button" class="help-btn" data-bs-toggle="modal" data-bs-target="#helpModal" title="Hilfe" aria-label="Hilfe">
+            <i class="fa-solid fa-circle-question"></i>
+          </button>
           <button type="button" class="logout-btn" onclick="signOutFirebase()" title="Abmelden" aria-label="Abmelden">
             <i class="fa-solid fa-right-from-bracket"></i>
           </button>
@@ -522,6 +569,124 @@
           <div class="modal-footer border-top border-secondary">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
             <button type="button" class="btn btn-primary" id="adminLoginBtn">Anmelden</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Hilfe-Modal -->
+    <div class="modal fade" id="helpModal" tabindex="-1" aria-labelledby="helpModalLabel">
+      <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content" style="background:#0f172a; border:1px solid #334155; color:#e2e8f0;">
+          <div class="modal-header border-bottom border-secondary">
+            <h5 class="modal-title text-light" id="helpModalLabel">
+              <i class="fa-solid fa-circle-question me-2" style="color:#06b6d4;"></i>
+              So funktioniert das Programm
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body px-4 py-3">
+
+            <!-- Überblick -->
+            <p class="text-muted mb-4" style="font-size:14px;">
+              Das Programm läuft in <strong class="text-light">zwei Phasen</strong>:
+              Zuerst schlägt jede Lehrkraft Bemerkungen vor, danach stimmt das Kollegium gemeinsam ab.
+            </p>
+
+            <!-- Phase 1 -->
+            <div class="mb-4">
+              <span class="help-phase-label" style="background:#1e3a5f; color:#60a5fa;">
+                Phase 1 – Vorschlagsphase
+              </span>
+              <div class="help-step">
+                <div class="help-step-num" style="background:#1e3a5f; color:#60a5fa;">1</div>
+                <div>
+                  <div style="font-weight:600; margin-bottom:2px;">Klasse auswählen</div>
+                  <div class="text-muted" style="font-size:13px;">Im Dropdown oben die gewünschte Klasse anklicken. Die Schülerliste lädt automatisch.</div>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num" style="background:#1e3a5f; color:#60a5fa;">2</div>
+                <div>
+                  <div style="font-weight:600; margin-bottom:2px;">Bemerkung eingeben</div>
+                  <div class="text-muted" style="font-size:13px;">
+                    In der Zeile des jeweiligen Schülers das Textfeld rechts ausfüllen und
+                    <kbd style="background:#1e293b; border:1px solid #475569; border-radius:3px; padding:1px 5px; font-size:12px;">Enter</kbd>
+                    drücken – der Vorschlag wird sofort gespeichert.
+                    Alternativ kann aus dem Baustein-Menü eine vorformulierte Bemerkung ausgewählt werden.
+                  </div>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num" style="background:#1e3a5f; color:#60a5fa;">3</div>
+                <div>
+                  <div style="font-weight:600; margin-bottom:2px;">Eigenen Vorschlag bearbeiten oder löschen</div>
+                  <div class="text-muted" style="font-size:13px;">
+                    Neben jedem eigenen Vorschlag erscheinen ein
+                    <i class="fa-solid fa-pen text-warning"></i> Stift-Symbol (bearbeiten) und ein
+                    <i class="fa-solid fa-trash-can text-danger"></i> Mülleimer-Symbol (löschen).
+                    Vorschläge anderer Lehrkräfte können nicht verändert werden.
+                  </div>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num" style="background:#1e3a5f; color:#60a5fa;">4</div>
+                <div>
+                  <div style="font-weight:600; margin-bottom:2px;">Alle Klassen durcharbeiten</div>
+                  <div class="text-muted" style="font-size:13px;">Einfach die nächste Klasse im Dropdown wählen. Es gibt keine Frist pro Klasse – alle Vorschläge bleiben gespeichert.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Phase 2 -->
+            <div class="mb-3">
+              <span class="help-phase-label" style="background:#1a3a2a; color:#4ade80;">
+                Phase 2 – Abstimmungsphase
+              </span>
+              <div class="help-step">
+                <div class="help-step-num" style="background:#1a3a2a; color:#4ade80;">1</div>
+                <div>
+                  <div style="font-weight:600; margin-bottom:2px;">Klasse auswählen</div>
+                  <div class="text-muted" style="font-size:13px;">Wie in Phase 1: Klasse im Dropdown wählen. Jetzt werden alle eingereichten Vorschläge pro Schüler angezeigt.</div>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num" style="background:#1a3a2a; color:#4ade80;">2</div>
+                <div>
+                  <div style="font-weight:600; margin-bottom:2px;">Abstimmen</div>
+                  <div class="text-muted" style="font-size:13px;">
+                    Jeden Vorschlag mit
+                    <i class="fa-solid fa-thumbs-up" style="color:#4ade80;"></i> (dafür) oder
+                    <i class="fa-solid fa-thumbs-down" style="color:#f87171;"></i> (dagegen) bewerten.
+                    Nochmaliges Klicken auf dieselbe Schaltfläche entfernt die Stimme wieder.
+                    Man kann auch gegen den eigenen Vorschlag stimmen.
+                  </div>
+                </div>
+              </div>
+              <div class="help-step">
+                <div class="help-step-num" style="background:#1a3a2a; color:#4ade80;">3</div>
+                <div>
+                  <div style="font-weight:600; margin-bottom:2px;">Alle Klassen abstimmen</div>
+                  <div class="text-muted" style="font-size:13px;">Bitte für jede Klasse mindestens einmal abstimmen. Die Statusleiste oben zeigt, welche Klassen bereits bewertet wurden.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Suche -->
+            <div style="background:#1e293b; border-radius:8px; padding:12px 16px; margin-top:8px;">
+              <div style="font-weight:600; margin-bottom:4px;">
+                <i class="fa-solid fa-magnifying-glass me-2" style="color:#06b6d4;"></i>Schülersuche
+              </div>
+              <div class="text-muted" style="font-size:13px;">
+                Im Suchfeld oben nach Name oder Vorname suchen.
+                Ist eine Klasse ausgewählt, springt die Liste direkt zum passenden Schüler.
+                Ohne Klasse wird klassenübergreifend gesucht – auch SuS ohne bisherige Bemerkungen werden gefunden.
+              </div>
+            </div>
+
+          </div>
+          <div class="modal-footer border-top border-secondary">
+            <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Verstanden</button>
           </div>
         </div>
       </div>
