@@ -93,20 +93,22 @@
         border-color: var(--primary-accent);
     }
     .help-btn {
-        width: 34px;
         height: 34px;
+        padding: 0 12px;
         display: inline-flex;
         align-items: center;
-        justify-content: center;
-        border: 1px solid var(--border-dark);
+        gap: 6px;
+        border: 1px solid #06b6d4;
         border-radius: 6px;
-        background: #1e293b;
-        color: var(--text-soft);
+        background: rgba(6,182,212,0.12);
+        color: #06b6d4;
         cursor: pointer;
-        font-size: 15px;
-        font-weight: 700;
+        font-size: 13px;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: background 0.15s, color 0.15s;
     }
-    .help-btn:hover { color: var(--text-light); border-color: var(--primary-accent); }
+    .help-btn:hover { background: rgba(6,182,212,0.25); color: #fff; }
     .help-step {
         display: flex;
         gap: 14px;
@@ -523,7 +525,7 @@
         <div class="auth-bar" id="auth-bar">
           <span class="auth-email" id="auth-user-email"></span>
           <button type="button" class="help-btn" data-bs-toggle="modal" data-bs-target="#helpModal" title="Hilfe" aria-label="Hilfe">
-            <i class="fa-solid fa-circle-question"></i>
+            <i class="fa-solid fa-circle-question"></i> Hilfe
           </button>
           <button type="button" class="logout-btn" onclick="signOutFirebase()" title="Abmelden" aria-label="Abmelden">
             <i class="fa-solid fa-right-from-bracket"></i>
@@ -550,7 +552,7 @@
       </main>
       
       <footer class="mt-5 pt-4 border-top border-secondary text-center text-muted small">
-        &copy; 2025 FSR-Cockpit | Secure Educational Environment
+        &copy; 2026 FSR-Cockpit | Jochen Welschmeier
       </footer>
     </div>
 
