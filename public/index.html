@@ -1335,13 +1335,13 @@ const ProposalsModule = (function(){
     if (!combined || combined.length === 0) return '';
     return combined.filter(p=>true).map(p=>{
       const isTemp = Boolean(p._temp) || String(p.id||'').startsWith('temp-');
-      // Löschen-Icon nur für echte Vorschläge (keine temp-IDs)
       const deleteBtn = (p.canDelete && !isTemp) ? `<i class="fa-solid fa-trash-can text-danger ms-2" style="cursor:pointer; opacity:0.7;" onclick="ProposalsModule.deleteProposalWithLog('${p.id}','${studentId}','${className}')" title="Löschen"></i>` : '';
+      const editBtn = (p.canDelete && !isTemp) ? `<i class="fa-solid fa-pen text-warning ms-2" style="cursor:pointer; opacity:0.7;" onclick="ProposalsModule.startEditProposal('${p.id}','${studentId}','${className}')" title="Bearbeiten"></i>` : '';
       const tempBadge = isTemp ? `<span class="badge bg-secondary ms-2" style="font-size:0.65rem;">wird gespeichert..</span>` : '';
       const failedBadge = p._failed ? `<button class="btn btn-sm btn-outline-danger ms-2" onclick="ProposalsModule.retryTempProposal('${p.id}')">Speichern fehlgeschlagen – erneut</button>` : '';
-      // Gespeichert-Badge nur für echte Vorschläge, die gerade frisch gespeichert wurden
       const savedBadge = (!isTemp && p._justSaved) ? `<span id="saved-badge-${p.id}" class="badge bg-success ms-2" style="font-size:0.65rem; display:none;">gespeichert</span>` : '';
-      return `\n       <div id="prop-row-${p.id}" class="existing-proposal-box fade-in-row">\n         <div style="flex:1;">\n           <i class="fa-solid fa-quote-left quote-icon"></i> ${escapeHtml(p.text||'')}\n         </div>\n         <div class="d-flex align-items-center flex-shrink-0 ms-2">\n           <span class="user-badge">${escapeHtml((p.creator||'').split('@')[0])}</span>\n           ${tempBadge}\n           ${failedBadge}\n           ${savedBadge}\n           ${deleteBtn}\n         </div>\n       </div>`;
+      const textAttr = (p.text||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      return `\n       <div id="prop-row-${p.id}" class="existing-proposal-box fade-in-row" data-proposal-text="${textAttr}">\n         <div style="flex:1;">\n           <i class="fa-solid fa-quote-left quote-icon"></i> ${escapeHtml(p.text||'')}\n         </div>\n         <div class="d-flex align-items-center flex-shrink-0 ms-2">\n           <span class="user-badge">${escapeHtml((p.creator||'').split('@')[0])}</span>\n           ${tempBadge}\n           ${failedBadge}\n           ${savedBadge}\n           ${editBtn}\n           ${deleteBtn}\n         </div>\n       </div>`;
     }).join('');
   }
 
@@ -1585,6 +1585,64 @@ const ProposalsModule = (function(){
     }).withFailureHandler(err=>{ console.error('PM save failed', err); if(student){ student.proposals = (student.proposals||[]).filter(p=>p.id!==tempId); const cell = document.getElementById(`proposals-cell-${studentId}`); if(cell) cell.innerHTML = ProposalsModule.getProposalListHtml(student); } if(typeof showMessage==='function') showMessage('Fehler','Speichern fehlgeschlagen.','error'); }).saveBulkProposals(payload);
   }
 
+  function startEditProposal(proposalId, studentId, className) {
+    const row = document.getElementById(`prop-row-${proposalId}`);
+    if (!row) return;
+    const currentText = row.dataset.proposalText || '';
+    row.innerHTML = `
+      <div style="flex:1;">
+        <textarea id="edit-ta-${proposalId}" class="form-control bg-dark text-light" style="font-size:13px; border-color:#334155; resize:vertical;" rows="2"></textarea>
+      </div>
+      <div class="d-flex align-items-center flex-shrink-0 ms-2 gap-1">
+        <button class="btn btn-sm btn-success" onclick="ProposalsModule.saveProposalEdit('${proposalId}','${studentId}','${className}')" title="Speichern">
+          <i class="fa-solid fa-check"></i>
+        </button>
+        <button class="btn btn-sm btn-secondary" onclick="ProposalsModule.cancelProposalEdit('${proposalId}','${studentId}','${className}')" title="Abbrechen">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>`;
+    const ta = document.getElementById(`edit-ta-${proposalId}`);
+    if (ta) { ta.value = currentText; ta.focus(); }
+  }
+
+  function saveProposalEdit(proposalId, studentId, className) {
+    const ta = document.getElementById(`edit-ta-${proposalId}`);
+    if (!ta) return;
+    const newText = ta.value.trim();
+    if (!newText) { if (typeof showMessage === 'function') showMessage('Fehler', 'Text darf nicht leer sein.', 'error'); return; }
+    const row = document.getElementById(`prop-row-${proposalId}`);
+    if (row) row.style.opacity = '0.5';
+    google.script.run
+      .withSuccessHandler(res => {
+        if (!res || !res.success) {
+          if (row) row.style.opacity = '';
+          if (typeof showMessage === 'function') showMessage('Fehler', (res && res.error) || 'Speichern fehlgeschlagen', 'error');
+          return;
+        }
+        if (res.proposalsByStudent && globalData.studentsByClass && globalData.studentsByClass[className]) {
+          globalData.studentsByClass[className].forEach(s => {
+            if (res.proposalsByStudent[s.id] !== undefined) s.proposals = res.proposalsByStudent[s.id];
+          });
+        }
+        const studentList = globalData.studentsByClass && globalData.studentsByClass[className];
+        const student = studentList && studentList.find(s => String(s.id) === String(studentId));
+        const cell = document.getElementById(`proposals-cell-${studentId}`);
+        if (cell && student) cell.innerHTML = ProposalsModule.getProposalListHtml(student);
+      })
+      .withFailureHandler(err => {
+        if (row) row.style.opacity = '';
+        if (typeof showMessage === 'function') showMessage('Fehler', 'Netzwerkfehler: ' + err, 'error');
+      })
+      .updateProposalV2(proposalId, newText);
+  }
+
+  function cancelProposalEdit(proposalId, studentId, className) {
+    const studentList = globalData.studentsByClass && globalData.studentsByClass[className];
+    const student = studentList && studentList.find(s => String(s.id) === String(studentId));
+    const cell = document.getElementById(`proposals-cell-${studentId}`);
+    if (cell && student) cell.innerHTML = ProposalsModule.getProposalListHtml(student);
+  }
+
   // ProposalsCore is provided by js-proposals-core.html include
   return {
     addOptimisticProposal,
@@ -1596,7 +1654,10 @@ const ProposalsModule = (function(){
     retryTempProposal,
     markProposalFailed,
     clearPendingTimeout,
-    deleteProposalWithLog
+    deleteProposalWithLog,
+    startEditProposal,
+    saveProposalEdit,
+    cancelProposalEdit
   };
 })();
 
@@ -2366,21 +2427,32 @@ function handleStudentSearch(query) {
 
 function filterStudentsInClass(className, query) {
   const q = String(query || '').toLowerCase().trim();
-  const rows = document.querySelectorAll(`.student-row[data-student-id]`);
-  rows.forEach(row => {
-    if (row.dataset.className && row.dataset.className !== className) {
-      // rows from anderen Klassen sind aktuell nicht sichtbar
-      row.style.display = '';
-      return;
-    }
-    const name = row.querySelector('.student-name')?.innerText.toLowerCase() || '';
-    const firstname = row.querySelector('.student-firstname')?.innerText.toLowerCase() || '';
-    if (!q || name.includes(q) || firstname.includes(q)) {
-      row.style.display = '';
-    } else {
-      row.style.display = 'none';
-    }
-  });
+
+  // Restore visibility of any previously hidden rows
+  document.querySelectorAll('.student-row[data-student-id]').forEach(row => { row.style.display = ''; });
+
+  if (!q) return;
+
+  // Search through full data array (works regardless of virtual list viewport)
+  const students = (globalData.studentsByClass && globalData.studentsByClass[className]) || [];
+  const matchIdx = students.findIndex(s =>
+    (s.nachname || '').toLowerCase().includes(q) ||
+    (s.vorname || '').toLowerCase().includes(q)
+  );
+
+  if (matchIdx === -1) return;
+
+  // Scroll virtual list wrapper to bring matching student into view
+  const rowHeight = 170;
+  const wrapper = document.querySelector('.virtual-list');
+  if (wrapper) {
+    const targetTop = matchIdx * rowHeight - Math.floor(wrapper.clientHeight / 2) + Math.floor(rowHeight / 2);
+    wrapper.scrollTop = Math.max(0, targetTop);
+    wrapper.dispatchEvent(new Event('scroll'));
+  }
+
+  // After re-render, highlight the matching row
+  setTimeout(() => focusStudentRow(students[matchIdx].id), 150);
 }
 
 function performGlobalStudentSearch(query) {

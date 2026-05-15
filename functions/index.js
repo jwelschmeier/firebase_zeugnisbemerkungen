@@ -578,8 +578,15 @@ async function getProposalVoteMaps(proposalIds, userEmail, proposalCreatorMap) {
       const voter = String(vote.teacherEmail || '').toLowerCase();
       const creator = creatorByProposal[pid] || '';
 
-      // Ignore explicit votes from creator: creator vote remains implicit +1.
-      if (creator && voter === creator) return;
+      // Creator's explicit vote overrides their implicit +1.
+      if (creator && voter === creator) {
+        const implicitPosIdx = voteCounts[pid].votersPos.indexOf(creator);
+        if (implicitPosIdx > -1) {
+          voteCounts[pid].votersPos.splice(implicitPosIdx, 1);
+          voteCounts[pid].pos = Math.max(0, voteCounts[pid].pos - 1);
+        }
+        // Fall through to normal vote processing below.
+      }
 
       voteCounts[pid] = voteCounts[pid] || { pos: 0, neg: 0, votersPos: [], votersNeg: [] };
       if (Number(vote.value) > 0) {
@@ -773,9 +780,8 @@ async function searchStudentsAcrossClasses(query, limit = 20) {
   const max = Math.min(Number(limit) || 20, 50);
   const snap = await db.collection(COLLECTIONS.students)
     .select('id', 'klasse', 'nachname', 'vorname', 'photoUrl', 'photoId')
-    .limit(max * 3)
     .get();
-  
+
   const matches = snap.docs
     .map((doc) => {
       const data = doc.data();
@@ -784,8 +790,8 @@ async function searchStudentsAcrossClasses(query, limit = 20) {
     .filter((student) => normalizeKey(`${student.klasse} ${student.nachname} ${student.vorname}`).includes(q))
     .sort((a, b) => `${a.klasse} ${a.nachname}`.localeCompare(`${b.klasse} ${b.nachname}`))
     .slice(0, max);
-  
-  return { success: true, results: matches, limited: snap.docs.length === max * 3, totalMatches: matches.length };
+
+  return { success: true, results: matches, limited: false, totalMatches: matches.length };
 }
 
 async function saveProposalsV2(input) {
@@ -879,6 +885,34 @@ async function deleteProposal(proposalId) {
   return deleteProposalV2(proposalId);
 }
 
+async function updateProposalV2(proposalId, newText) {
+  const pid = String(proposalId || '');
+  const text = normalizeText(newText || '');
+  if (!text) return { success: false, error: 'Text darf nicht leer sein.' };
+
+  const ref = db.collection(COLLECTIONS.proposals).doc(pid);
+  const snap = await ref.get();
+  if (!snap.exists) return { success: false, error: 'Vorschlag nicht gefunden.' };
+
+  const data = snap.data() || {};
+  const userEmail = currentUserEmail();
+  if (String(data.creator || '').toLowerCase() !== String(userEmail || '').toLowerCase()) {
+    return { success: false, error: 'Keine Berechtigung.' };
+  }
+
+  await ref.update({ text, updatedAt: admin.firestore.Timestamp.now() });
+
+  const className = data.className || '';
+  const refreshed = className ? await getStudentsForClass(className) : null;
+  const proposalsByStudent = {};
+  if (refreshed && refreshed.studentsByClass[className]) {
+    refreshed.studentsByClass[className].forEach((student) => {
+      proposalsByStudent[student.id] = student.proposals || [];
+    });
+  }
+  return { success: true, proposalId: pid, text, proposalsByStudent, className, studentId: data.studentId || '' };
+}
+
 async function castVote(input, maybeValue) {
   const proposalId = typeof input === 'object' && input !== null ? input.proposalId : input;
   const value = typeof input === 'object' && input !== null ? input.value : maybeValue;
@@ -887,20 +921,6 @@ async function castVote(input, maybeValue) {
   const proposalIdStr = String(proposalId);
   const proposalSnap = await db.collection(COLLECTIONS.proposals).doc(proposalIdStr).get();
   const proposalCreator = proposalSnap.exists ? String((proposalSnap.data() || {}).creator || '').toLowerCase() : '';
-
-  // Creator vote is always implicit +1 and cannot be changed.
-  if (proposalCreator && teacherEmailLc === proposalCreator) {
-    const { voteCounts, myVotes } = await getProposalVoteMaps([proposalIdStr], teacherEmail, { [proposalIdStr]: proposalCreator });
-    const counts = voteCounts[proposalIdStr] || { pos: 1, neg: 0, votersPos: [proposalCreator], votersNeg: [] };
-    return {
-      success: true,
-      myVote: myVotes[proposalIdStr] || 1,
-      pos: counts.pos,
-      neg: counts.neg,
-      votersPos: counts.votersPos.join(', '),
-      votersNeg: counts.votersNeg.join(', ')
-    };
-  }
 
   const rawValue = Number(value);
   const voteId = `${proposalIdStr}_${teacherEmail.replace(/[^\w.-]/g, '_')}`;
@@ -1112,6 +1132,7 @@ const handlers = {
   saveBulkProposals,
   savePhaseDescriptions,
   saveProposalsV2,
+  updateProposalV2,
   searchStudentsAcrossClasses,
   setAppPhase,
   syncPhotosToDatabase,
